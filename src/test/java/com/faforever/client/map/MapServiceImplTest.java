@@ -9,7 +9,7 @@ import com.faforever.client.remote.AssetService;
 import com.faforever.client.task.CompletableTask;
 import com.faforever.client.task.TaskService;
 import com.faforever.client.test.AbstractPlainJavaFxTest;
-import com.faforever.client.theme.ThemeService;
+import com.faforever.client.theme.UiService;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ObservableList;
@@ -74,7 +74,7 @@ public class MapServiceImplTest extends AbstractPlainJavaFxTest {
   @Mock
   private I18n i18n;
   @Mock
-  private ThemeService themeService;
+  private UiService uiService;
   @Mock
   private AssetService assetService;
 
@@ -89,7 +89,7 @@ public class MapServiceImplTest extends AbstractPlainJavaFxTest {
     instance.directory = new RAMDirectory();
     instance.analyzer = new SimpleAnalyzer();
     instance.i18n = i18n;
-    instance.themeService = themeService;
+    instance.uiService = uiService;
     instance.assetService = assetService;
     instance.mapPreviewUrlFormat = "http://127.0.0.1:65534/preview/%s/%s";
 

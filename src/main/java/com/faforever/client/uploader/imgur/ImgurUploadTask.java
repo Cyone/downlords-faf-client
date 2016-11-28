@@ -12,8 +12,8 @@ import javafx.scene.image.Image;
 import org.springframework.core.env.Environment;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
 import javax.imageio.ImageIO;
+import javax.inject.Inject;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -30,9 +30,9 @@ import static com.faforever.client.io.Bytes.formatSize;
 public class ImgurUploadTask extends CompletableTask<String> {
 
   private final Gson gson;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   Environment environment;
   private Image image;
   private int maxUploadSize;

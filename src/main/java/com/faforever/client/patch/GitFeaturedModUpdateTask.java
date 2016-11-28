@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
@@ -21,15 +21,15 @@ public class GitFeaturedModUpdateTask extends CompletableTask<PatchResult> {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   GitWrapper gitWrapper;
-  @Resource
+  @Inject
   Environment environment;
-  @Resource
+  @Inject
   ModService modService;
 
   private String gameRepositoryUri;

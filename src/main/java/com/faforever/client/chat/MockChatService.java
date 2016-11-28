@@ -15,9 +15,12 @@ import javafx.collections.MapChangeListener;
 import javafx.concurrent.Task;
 import javafx.scene.paint.Color;
 import org.pircbotx.User;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,6 +34,9 @@ import java.util.function.Consumer;
 
 import static com.faforever.client.task.CompletableTask.Priority.HIGH;
 
+@Lazy
+@Service
+@Profile("local")
 // NOSONAR
 public class MockChatService implements ChatService {
 
@@ -42,11 +48,11 @@ public class MockChatService implements ChatService {
   private final ObjectProperty<ConnectionState> connectionState;
   private final IntegerProperty unreadMessagesCount;
 
-  @Resource
+  @Inject
   UserService userService;
-  @Resource
+  @Inject
   TaskService taskService;
-  @Resource
+  @Inject
   I18n i18n;
 
   public MockChatService() {
@@ -71,16 +77,6 @@ public class MockChatService implements ChatService {
   private void simulateConnectionEstablished() {
     connectionState.set(ConnectionState.CONNECTED);
     joinChannel("#mockChannel");
-  }
-
-  @Override
-  public void addOnMessageListener(Consumer<ChatMessage> listener) {
-    onChatMessageListeners.add(listener);
-  }
-
-  @Override
-  public void addOnPrivateChatMessageListener(Consumer<ChatMessage> listener) {
-
   }
 
   @Override

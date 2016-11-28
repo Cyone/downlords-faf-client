@@ -90,7 +90,7 @@ public class FafApiAccessorImplTest {
 
     when(preferencesService.getPreferencesDirectory()).thenReturn(preferencesDirectory.getRoot().toPath());
     when(userService.loggedInProperty()).thenReturn(loggedInProperty);
-    when(userService.getUid()).thenReturn(123);
+    when(userService.getUserId()).thenReturn(123);
     when(userService.getUsername()).thenReturn("junit");
     when(userService.getPassword()).thenReturn("42");
 
@@ -276,7 +276,7 @@ public class FafApiAccessorImplTest {
         Ranked1v1EntryBeanBuilder.create().defaultValues().username("user2").get()
     );
 
-    assertThat(instance.getRanked1v1Entries(), equalTo(result));
+    assertThat(instance.getLeaderboardEntries(RatingType.LADDER_1V1), equalTo(result));
     verify(httpTransport).buildRequest("GET", "http://api.example.com/leaderboards/1v1?page%5Bnumber%5D=1");
     verify(httpTransport).buildRequest("GET", "http://api.example.com/leaderboards/1v1?page%5Bnumber%5D=2");
   }

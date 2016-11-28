@@ -16,6 +16,7 @@ import com.faforever.client.notification.ImmediateNotification;
 import com.faforever.client.notification.NotificationService;
 import com.faforever.client.notification.ReportAction;
 import com.faforever.client.patch.GameUpdater;
+import com.faforever.client.player.Player;
 import com.faforever.client.player.PlayerService;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.rankedmatch.MatchmakerMessage;
@@ -42,9 +43,11 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URI;
@@ -71,6 +74,8 @@ import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+@Lazy
+@Service
 public class GameServiceImpl implements GameService {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -86,35 +91,35 @@ public class GameServiceImpl implements GameService {
   private final ObservableList<Game> games;
   private final ObservableMap<Integer, Game> uidToGameInfoBean;
 
-  @Resource
+  @Inject
   FafService fafService;
-  @Resource
+  @Inject
   ForgedAllianceService forgedAllianceService;
-  @Resource
+  @Inject
   MapService mapService;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   GameUpdater gameUpdater;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   ApplicationContext applicationContext;
-  @Resource
+  @Inject
   ScheduledExecutorService scheduledExecutorService;
-  @Resource
+  @Inject
   PlayerService playerService;
-  @Resource
+  @Inject
   ReportingService reportingService;
-  @Resource
+  @Inject
   ReplayService replayService;
-  @Resource
+  @Inject
   EventBus eventBus;
-  @Resource
+  @Inject
   IceAdapter iceAdapter;
-  @Resource
+  @Inject
   ModService modService;
 
   @VisibleForTesting
@@ -130,7 +135,7 @@ public class GameServiceImpl implements GameService {
     gameRunning = new SimpleBooleanProperty();
     currentGame = new SimpleObjectProperty<>();
     games = FXCollections.observableList(new ArrayList<>(),
-        item -> new Observable[]{item.statusProperty()}
+        item -> new Observable[]{item.statusProperty(), item.getTeams()}
     );
     JavaFxUtil.attachListToMap(games, uidToGameInfoBean);
   }
@@ -456,6 +461,7 @@ public class GameServiceImpl implements GameService {
 
     final Game game;
     Integer gameId = gameInfoMessage.getUid();
+    Player currentPlayer = playerService.getCurrentPlayer();
     if (!uidToGameInfoBean.containsKey(gameId)) {
       game = new Game(gameInfoMessage);
       uidToGameInfoBean.put(gameId, game);
@@ -464,20 +470,37 @@ public class GameServiceImpl implements GameService {
       Platform.runLater(() -> game.updateFromGameInfo(gameInfoMessage));
 
       if (GameState.CLOSED == gameInfoMessage.getState()) {
-        synchronized (uidToGameInfoBean) {
-          uidToGameInfoBean.remove(gameInfoMessage.getUid());
+        if (currentPlayer.getGame() == game) {
+          // Don't remove the game until the current player closed it
+          currentPlayer.gameProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue == null && oldValue.getStatus() == GameState.CLOSED) {
+              removeGame(gameInfoMessage);
+            }
+          });
+        } else {
+          removeGame(gameInfoMessage);
         }
         return;
       }
     }
 
     boolean currentPlayerInGame = gameInfoMessage.getTeams().values().stream()
-        .anyMatch(team -> team.contains(playerService.getCurrentPlayer().getUsername()));
+        .anyMatch(team -> team.contains(currentPlayer.getUsername()));
 
     if (currentPlayerInGame && GameState.OPEN == gameInfoMessage.getState()) {
       synchronized (currentGame) {
         currentGame.set(game);
       }
     }
+  }
+
+  private void removeGame(GameInfoMessage gameInfoMessage) {
+    Platform.runLater(() -> {
+      // This needs to run in the application thread since otherwise code triggered by the above updateFromGameInfo
+      // operation, which runs in the application thread, too, may try to access the removed element.
+      synchronized (uidToGameInfoBean) {
+        uidToGameInfoBean.remove(gameInfoMessage.getUid());
+      }
+    });
   }
 }

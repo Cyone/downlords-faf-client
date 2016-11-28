@@ -1,5 +1,6 @@
 package com.faforever.client.game;
 
+import com.faforever.client.fx.Controller;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.map.MapService;
 import com.faforever.client.map.MapServiceImpl.PreviewSize;
@@ -8,6 +9,7 @@ import com.faforever.client.mod.ModService;
 import com.faforever.client.notification.NotificationService;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.remote.domain.GameState;
+import com.faforever.client.theme.UiService;
 import com.google.common.annotations.VisibleForTesting;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
@@ -15,7 +17,6 @@ import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
@@ -28,14 +29,12 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -45,7 +44,9 @@ import java.util.function.Predicate;
 import static javafx.beans.binding.Bindings.createObjectBinding;
 import static javafx.beans.binding.Bindings.createStringBinding;
 
-public class GamesController {
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class GamesController implements Controller<Node> {
 
   private static final Collection<String> HIDDEN_FEATURED_MODS = Arrays.asList(
       KnownFeaturedMod.COOP.getString(),
@@ -58,63 +59,42 @@ public class GamesController {
       gameInfoBean.getStatus() == GameState.OPEN
           && !HIDDEN_FEATURED_MODS.contains(gameInfoBean.getFeaturedMod());
 
-  @FXML
-  ToggleButton tableButton;
-  @FXML
-  ToggleButton tilesButton;
-  @FXML
-  ToggleGroup viewToggleGroup;
-  @FXML
-  VBox teamListPane;
-  @FXML
-  Label mapLabel;
-  @FXML
-  Button createGameButton;
-  @FXML
-  Pane gameViewContainer;
-  @FXML
-  Node gamesRoot;
-  @FXML
-  ImageView mapImageView;
-  @FXML
-  Label gameTitleLabel;
-  @FXML
-  Label numberOfPlayersLabel;
-  @FXML
-  Label hostLabel;
-  @FXML
-  Label gameTypeLabel;
-  @FXML
-  ScrollPane gameDetailPane;
+  public ToggleButton tableButton;
+  public ToggleButton tilesButton;
+  public ToggleGroup viewToggleGroup;
+  public VBox teamListPane;
+  public Label mapLabel;
+  public Button createGameButton;
+  public Pane gameViewContainer;
+  public Node gamesRoot;
+  public ImageView mapImageView;
+  public Label gameTitleLabel;
+  public Label numberOfPlayersLabel;
+  public Label hostLabel;
+  public Label gameTypeLabel;
+  public ScrollPane gameDetailPane;
 
-  @Resource
-  ApplicationContext applicationContext;
-  @Resource
+  @Inject
+  UiService uiService;
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   GameService gameService;
-  @Resource
+  @Inject
   MapService mapService;
-  @Resource
-  CreateGameController createGameController;
-  @Resource
-  EnterPasswordController enterPasswordController;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   ModService modService;
 
   private FilteredList<Game> filteredItems;
-  private Stage mapDetailPopup;
 
   private Game currentGame;
   private InvalidationListener teamsChangeListener;
 
-  @PostConstruct
-  void postConstruct() {
-
+  public void initialize() {
     ObservableList<Game> games = gameService.getGames();
 
     filteredItems = new FilteredList<>(games);
@@ -135,8 +115,7 @@ public class GamesController {
     setSelectedGame(null);
   }
 
-  @FXML
-  void onShowPrivateGames(ActionEvent actionEvent) {
+  public void onShowPrivateGames(ActionEvent actionEvent) {
     CheckBox checkBox = (CheckBox) actionEvent.getSource();
     boolean selected = checkBox.isSelected();
     if (selected) {
@@ -146,8 +125,7 @@ public class GamesController {
     }
   }
 
-  @FXML
-  void onCreateGameButtonClicked(ActionEvent actionEvent) {
+  public void onCreateGameButtonClicked(ActionEvent actionEvent) {
     if (preferencesService.getPreferences().getForgedAlliance().getPath() == null) {
       preferencesService.letUserChooseGameDirectory()
           .thenAccept(path -> {
@@ -159,25 +137,16 @@ public class GamesController {
     }
 
     Bounds screenBounds = createGameButton.localToScreen(createGameButton.getBoundsInLocal());
+    CreateGameController createGameController = uiService.loadFxml("theme/play/create_game.fxml");
     createGameController.show(gamesRoot.getScene().getWindow(), screenBounds.getMinX(), screenBounds.getMaxY());
-  }
-
-  private Stage getMapDetailPopup() {
-    if (mapDetailPopup == null) {
-      mapDetailPopup = new Stage(StageStyle.TRANSPARENT);
-      mapDetailPopup.initModality(Modality.NONE);
-      mapDetailPopup.initOwner(getRoot().getScene().getWindow());
-    }
-    return mapDetailPopup;
   }
 
   public Node getRoot() {
     return gamesRoot;
   }
 
-  @FXML
-  void onTableButtonClicked() {
-    GamesTableController gamesTableController = applicationContext.getBean(GamesTableController.class);
+  public void onTableButtonClicked() {
+    GamesTableController gamesTableController = uiService.loadFxml("theme/play/games_table.fxml");
     gamesTableController.selectedGameProperty()
         .addListener((observable, oldValue, newValue) -> setSelectedGame(newValue));
     Platform.runLater(() -> {
@@ -196,9 +165,8 @@ public class GamesController {
     AnchorPane.setTopAnchor(root, 0d);
   }
 
-  @FXML
-  void onTilesButtonClicked() {
-    GamesTilesContainerController gamesTilesContainerController = applicationContext.getBean(GamesTilesContainerController.class);
+  public void onTilesButtonClicked() {
+    GamesTilesContainerController gamesTilesContainerController = uiService.loadFxml("theme/play/games_tiles_container.fxml");
     gamesTilesContainerController.selectedGameProperty()
         .addListener((observable, oldValue, newValue) -> setSelectedGame(newValue));
     gamesTilesContainerController.createTiledFlowPane(filteredItems);
@@ -253,7 +221,7 @@ public class GamesController {
     teamListPane.getChildren().clear();
     synchronized (playersByTeamNumber) {
       for (Map.Entry<? extends String, ? extends List<String>> entry : playersByTeamNumber.entrySet()) {
-        TeamCardController teamCardController = applicationContext.getBean(TeamCardController.class);
+        TeamCardController teamCardController = uiService.loadFxml("theme/team_card.fxml");
         teamCardController.setPlayersInTeam(entry.getKey(), entry.getValue());
         teamListPane.getChildren().add(teamCardController.getRoot());
       }

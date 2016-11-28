@@ -5,12 +5,12 @@ import com.faforever.client.i18n.I18n;
 import com.faforever.client.map.MapService;
 import com.faforever.client.mod.ModService;
 import com.faforever.client.test.AbstractPlainJavaFxTest;
+import com.faforever.client.theme.UiService;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Pane;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
-import org.springframework.context.ApplicationContext;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -29,7 +29,7 @@ public class GameTileControllerTest extends AbstractPlainJavaFxTest {
   @Mock
   private JoinGameHelper joinGameHelper;
   @Mock
-  private ApplicationContext applicationContext;
+  private UiService uiService;
   @Mock
   private I18n i18n;
   @Mock
@@ -44,24 +44,23 @@ public class GameTileControllerTest extends AbstractPlainJavaFxTest {
 
   @Before
   public void setUp() throws Exception {
-    instance = loadController("game_tile.fxml");
+    instance = new GameTileController();
     instance.modService = modService;
-    instance.applicationContext = applicationContext;
+    instance.uiService = uiService;
     instance.i18n = i18n;
     instance.mapService = mapService;
     instance.joinGameHelper = joinGameHelper;
 
-    game = GameInfoBeanBuilder.create().defaultValues().get();
+    game = GameBuilder.create().defaultValues().get();
 
-    when(applicationContext.getBean(GameTooltipController.class)).thenReturn(gameTooltipController);
+    when(uiService.loadFxml("theme/game_tooltip.fxml")).thenReturn(gameTooltipController);
     when(gameTooltipController.getRoot()).thenReturn(new Pane());
     when(i18n.get(anyString())).thenReturn("test");
     when(modService.getFeaturedMod(game.getFeaturedMod())).thenReturn(CompletableFuture.completedFuture(
         FeaturedModBeanBuilder.create().defaultValues().get()
     ));
 
-    instance.initialize();
-    instance.postConstruct();
+    loadFxml("theme/play/game_tile.fxml", clazz -> instance);
 
     instance.setOnSelectedListener(onSelectedConsumer);
     instance.setGame(game);

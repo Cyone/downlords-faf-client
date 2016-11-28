@@ -7,7 +7,7 @@ import com.faforever.client.task.CompletableTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.BufferedInputStream;
 import java.lang.invoke.MethodHandles;
 import java.net.URL;
@@ -20,9 +20,9 @@ public class DownloadMapTask extends CompletableTask<Void> {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   I18n i18n;
 
   private URL mapUrl;

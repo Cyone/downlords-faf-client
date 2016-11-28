@@ -265,4 +265,6 @@ dependencies {
   compile 'org.luaj:luaj-jse:3.0.1'
   compile 'commons-validator:commons-validator:1.5.1'
   compile 'com.github.micheljung:JJsonRpc:f683b55f55'
+  compile 'org.jfxtras:jfxtras-font-roboto:8.0-r5'
+  compile 'javax.inject:javax.inject:1'
 }

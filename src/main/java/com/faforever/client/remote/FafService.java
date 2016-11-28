@@ -5,22 +5,22 @@ import com.faforever.client.api.FeaturedModFile;
 import com.faforever.client.api.Ranked1v1Stats;
 import com.faforever.client.api.RatingType;
 import com.faforever.client.chat.avatar.AvatarBean;
-import com.faforever.client.config.CacheNames;
 import com.faforever.client.coop.CoopMission;
 import com.faforever.client.domain.RatingHistoryDataPoint;
+import com.faforever.client.fa.relay.GpgGameMessage;
 import com.faforever.client.game.Faction;
-import com.faforever.client.mod.FeaturedModBean;
+import com.faforever.client.game.KnownFeaturedMod;
 import com.faforever.client.game.NewGameInfo;
 import com.faforever.client.leaderboard.Ranked1v1EntryBean;
 import com.faforever.client.map.MapBean;
+import com.faforever.client.mod.FeaturedModBean;
 import com.faforever.client.mod.ModInfoBean;
 import com.faforever.client.net.ConnectionState;
-import com.faforever.client.fa.relay.GpgGameMessage;
 import com.faforever.client.player.Player;
 import com.faforever.client.remote.domain.GameLaunchMessage;
 import com.faforever.client.remote.domain.LoginMessage;
 import com.faforever.client.remote.domain.ServerMessage;
-import com.faforever.client.replay.ReplayInfoBean;
+import com.faforever.client.replay.Replay;
 import javafx.beans.property.ReadOnlyObjectProperty;
 
 import java.util.List;
@@ -62,8 +62,6 @@ public interface FafService {
 
   Long getSessionId();
 
-  CompletionStage<List<Ranked1v1EntryBean>> getRanked1v1Entries();
-
   CompletionStage<Ranked1v1Stats> getRanked1v1Stats();
 
   CompletionStage<Ranked1v1EntryBean> getRanked1v1EntryForPlayer(int playerId);
@@ -104,7 +102,9 @@ public interface FafService {
 
   CompletableFuture<List<FeaturedModBean>> getFeaturedMods();
 
-  CompletionStage<List<ReplayInfoBean>> getOnlineReplays();
+  CompletionStage<List<Replay>> getOnlineReplays();
 
   CompletableFuture<List<FeaturedModFile>> getFeaturedModFiles(FeaturedModBean featuredMod, Integer version);
+
+  CompletionStage<List<Ranked1v1EntryBean>> getLeaderboardEntries(KnownFeaturedMod mod);
 }

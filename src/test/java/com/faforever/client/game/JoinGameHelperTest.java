@@ -11,6 +11,7 @@ import com.faforever.client.preferences.Preferences;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.reporting.ReportingService;
 import com.faforever.client.test.AbstractPlainJavaFxTest;
+import com.faforever.client.theme.UiService;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -39,8 +40,6 @@ public class JoinGameHelperTest extends AbstractPlainJavaFxTest {
   @Mock
   MapService mapService;
   @Mock
-  CreateGameController createGameController;
-  @Mock
   EnterPasswordController enterPasswordController;
   @Mock
   PreferencesService preferencesService;
@@ -59,6 +58,8 @@ public class JoinGameHelperTest extends AbstractPlainJavaFxTest {
   private Path path;
   @Mock
   private Preferences preferences;
+  @Mock
+  UiService uiService;
 
   @Before
   public void setUp() throws Exception {
@@ -68,7 +69,7 @@ public class JoinGameHelperTest extends AbstractPlainJavaFxTest {
     instance.playerService = playerService;
     instance.gameService = gameService;
     instance.preferencesService = preferencesService;
-    instance.enterPasswordController = enterPasswordController;
+    instance.uiService = uiService;
     instance.notificationService = notificationService;
     instance.setParentNode(this.getRoot());
 
@@ -78,12 +79,11 @@ public class JoinGameHelperTest extends AbstractPlainJavaFxTest {
 
     when(game.getMinRating()).thenReturn(0);
     when(game.getMaxRating()).thenReturn(1000);
+    when(uiService.loadFxml("theme/enter_password.fxml")).thenReturn(enterPasswordController);
 
-    when(gameService.joinGame(any(), any())).thenReturn(new CompletableFuture<Void>());
+    when(gameService.joinGame(any(), any())).thenReturn(new CompletableFuture<>());
 
     when(preferencesService.isGamePathValid()).thenReturn(true);
-
-    instance.postConstruct();
   }
 
 
@@ -135,7 +135,7 @@ public class JoinGameHelperTest extends AbstractPlainJavaFxTest {
   public void testJoinGamePasswordProtected() throws Exception {
     when(game.getPasswordProtected()).thenReturn(true);
     instance.join(game);
-    verify(instance.enterPasswordController).showPasswordDialog(getRoot().getScene().getWindow());
+    verify(enterPasswordController).showPasswordDialog(getRoot().getScene().getWindow());
   }
 
   /**

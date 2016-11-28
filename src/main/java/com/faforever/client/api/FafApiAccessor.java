@@ -6,7 +6,7 @@ import com.faforever.client.leaderboard.Ranked1v1EntryBean;
 import com.faforever.client.map.MapBean;
 import com.faforever.client.mod.FeaturedModBean;
 import com.faforever.client.mod.ModInfoBean;
-import com.faforever.client.replay.ReplayInfoBean;
+import com.faforever.client.replay.Replay;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -36,7 +36,7 @@ public interface FafApiAccessor {
 
   MapBean findMapByName(String mapId);
 
-  List<Ranked1v1EntryBean> getRanked1v1Entries();
+  List<Ranked1v1EntryBean> getLeaderboardEntries(RatingType ratingType);
 
   Ranked1v1Stats getRanked1v1Stats();
 
@@ -67,7 +67,7 @@ public interface FafApiAccessor {
   ModInfoBean getMod(String uid);
 
   // TODO this shouldn't be async
-  CompletionStage<List<ReplayInfoBean>> getOnlineReplays();
+  CompletionStage<List<Replay>> getOnlineReplays();
 
   List<FeaturedModFile> getFeaturedModFiles(FeaturedModBean featuredModBean, Integer version);
 }

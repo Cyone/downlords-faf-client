@@ -2,15 +2,15 @@ package com.faforever.client.api;
 
 import com.faforever.client.config.CacheNames;
 import com.faforever.client.coop.CoopMission;
-import com.faforever.client.mod.FeaturedModBean;
 import com.faforever.client.io.ByteCountListener;
 import com.faforever.client.io.CountingFileContent;
 import com.faforever.client.leaderboard.Ranked1v1EntryBean;
 import com.faforever.client.map.MapBean;
+import com.faforever.client.mod.FeaturedModBean;
 import com.faforever.client.mod.ModInfoBean;
 import com.faforever.client.net.UriUtil;
 import com.faforever.client.preferences.PreferencesService;
-import com.faforever.client.replay.ReplayInfoBean;
+import com.faforever.client.replay.Replay;
 import com.faforever.client.user.UserService;
 import com.google.api.client.auth.oauth2.AuthorizationCodeFlow;
 import com.google.api.client.auth.oauth2.AuthorizationCodeFlow.Builder;
@@ -47,15 +47,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -74,13 +77,15 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.regex.Pattern;
 
-import static java.util.stream.Collectors.toList;
-
 import static com.github.nocatch.NoCatch.noCatch;
 import static com.google.api.client.auth.oauth2.BearerToken.authorizationHeaderAccessMethod;
 import static java.lang.String.format;
 import static java.lang.String.valueOf;
+import static java.util.stream.Collectors.toList;
 
+@Lazy
+@Component
+@Profile("!local")
 public class FafApiAccessorImpl implements FafApiAccessor {
 
   private static final String HTTP_LOCALHOST = "http://localhost:";
@@ -88,15 +93,15 @@ public class FafApiAccessorImpl implements FafApiAccessor {
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final List<String> SCOPES = Arrays.asList("read_achievements", "read_events", "upload_map", "upload_mod", "write_account_data");
 
-  @Resource
+  @Inject
   JsonFactory jsonFactory;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   HttpTransport httpTransport;
-  @Resource
+  @Inject
   UserService userService;
-  @Resource
+  @Inject
   ClientHttpRequestFactory clientHttpRequestFactory;
 
   @Value("${api.baseUrl}")
@@ -131,7 +136,7 @@ public class FafApiAccessorImpl implements FafApiAccessor {
 
     userService.loggedInProperty().addListener((observable, oldValue, newValue) -> {
       if (newValue) {
-        authorize(userService.getUid());
+        authorize(userService.getUserId());
       } else {
         authorizedLatch = new CountDownLatch(1);
       }
@@ -226,8 +231,8 @@ public class FafApiAccessorImpl implements FafApiAccessor {
 
   @Override
   @Cacheable(CacheNames.LEADERBOARD)
-  public List<Ranked1v1EntryBean> getRanked1v1Entries() {
-    return getMany("/leaderboards/1v1", LeaderboardEntry.class).stream()
+  public List<Ranked1v1EntryBean> getLeaderboardEntries(RatingType ratingType) {
+    return getMany("/leaderboards/"+ratingType.getString(), LeaderboardEntry.class).stream()
         .map(Ranked1v1EntryBean::fromLeaderboardEntry)
         .collect(toList());
   }
@@ -323,7 +328,7 @@ public class FafApiAccessorImpl implements FafApiAccessor {
   }
 
   @Override
-  public CompletionStage<List<ReplayInfoBean>> getOnlineReplays() {
+  public CompletionStage<List<Replay>> getOnlineReplays() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 

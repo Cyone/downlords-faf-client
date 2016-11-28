@@ -1,6 +1,7 @@
 package com.faforever.client.coop;
 
 import com.faforever.client.api.CoopLeaderboardEntry;
+import com.faforever.client.fx.Controller;
 import com.faforever.client.fx.FxmlLoader;
 import com.faforever.client.fx.NodeTableCell;
 import com.faforever.client.fx.StringCell;
@@ -10,7 +11,6 @@ import com.faforever.client.game.Game;
 import com.faforever.client.game.GameService;
 import com.faforever.client.game.GamesTableController;
 import com.faforever.client.game.NewGameInfo;
-import com.faforever.client.game.TeamCardController;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.map.MapService;
 import com.faforever.client.map.MapServiceImpl.PreviewSize;
@@ -24,20 +24,16 @@ import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.remote.domain.GameState;
 import com.faforever.client.replay.ReplayService;
 import com.faforever.client.reporting.ReportingService;
-import com.faforever.client.theme.ThemeService;
+import com.faforever.client.theme.UiService;
 import com.faforever.client.util.TimeService;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import javafx.application.Platform;
-import javafx.beans.InvalidationListener;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.ObservableList;
-import javafx.collections.ObservableMap;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
@@ -55,14 +51,13 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
 
 import static com.faforever.client.game.KnownFeaturedMod.COOP;
@@ -71,7 +66,9 @@ import static javafx.beans.binding.Bindings.createObjectBinding;
 import static javafx.beans.binding.Bindings.createStringBinding;
 import static javafx.collections.FXCollections.observableList;
 
-public class CoopController {
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class CoopController implements Controller<Node> {
 
   private static final Predicate<Game> OPEN_COOP_GAMES_PREDICATE = gameInfoBean ->
       gameInfoBean.getStatus() == GameState.OPEN
@@ -101,42 +98,34 @@ public class CoopController {
   public TableColumn<CoopLeaderboardEntry, Integer> timeColumn;
   public TableColumn<CoopLeaderboardEntry, String> replayColumn;
 
-  @Resource
+  @Inject
   FxmlLoader fxmlLoader;
-  @Resource
+  @Inject
   ReplayService replayService;
-  @Resource
+  @Inject
   GameService gameService;
-  @Resource
+  @Inject
   CoopService coopService;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   ReportingService reportingService;
-  @Resource
+  @Inject
   MapService mapService;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
-  ThemeService themeService;
-  @Resource
-  ApplicationContext applicationContext;
-  @Resource
+  @Inject
+  UiService uiService;
+  @Inject
   TimeService timeService;
-  @Resource
+  @Inject
   WebViewConfigurer webViewConfigurer;
-  @Resource
+  @Inject
   ModService modService;
 
-  private InvalidationListener teamsChangeListener;
-
-  @VisibleForTesting
-  Game currentGame;
-
-  @FXML
-  void initialize() {
+  public void initialize() {
     missionComboBox.setCellFactory(param -> missionListCell());
     missionComboBox.setButtonCell(missionListCell());
     missionComboBox.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> setSelectedMission(newValue));
@@ -171,6 +160,20 @@ public class CoopController {
       button.setOnAction(this::onReplayButtonClicked);
       return button;
     }));
+
+    webViewConfigurer.configureWebView(descriptionWebView);
+
+    ObservableList<Game> games = gameService.getGames();
+
+    FilteredList<Game> filteredItems = new FilteredList<>(games);
+    filteredItems.setPredicate(OPEN_COOP_GAMES_PREDICATE);
+
+    GamesTableController gamesTableController = uiService.loadFxml("theme/play/games_table.fxml");
+    gamesTableController.selectedGameProperty().addListener((observable, oldValue, newValue) -> setSelectedGame(newValue));
+    gamesTableController.initializeGameTable(filteredItems);
+
+    Node root = gamesTableController.getRoot();
+    populateContainer(root);
   }
 
   private void onReplayButtonClicked(ActionEvent actionEvent) {
@@ -198,11 +201,11 @@ public class CoopController {
         mission -> {
           switch (mission.getCategory()) {
             case AEON:
-              return themeService.getThemeImage("images/aeon.png");
+              return uiService.getThemeImage("images/aeon.png");
             case CYBRAN:
-              return themeService.getThemeImage("images/cybran.png");
+              return uiService.getThemeImage("images/cybran.png");
             case UEF:
-              return themeService.getThemeImage("images/uef.png");
+              return uiService.getThemeImage("images/uef.png");
             default:
               return null;
           }
@@ -232,25 +235,6 @@ public class CoopController {
     });
 
     loadLeaderboard();
-  }
-
-  @PostConstruct
-  void postConstruct() {
-    Platform.runLater(() -> webViewConfigurer.configureWebView(descriptionWebView));
-
-    ObservableList<Game> games = gameService.getGames();
-
-    FilteredList<Game> filteredItems = new FilteredList<>(games);
-    filteredItems.setPredicate(OPEN_COOP_GAMES_PREDICATE);
-
-    GamesTableController gamesTableController = applicationContext.getBean(GamesTableController.class);
-    gamesTableController.selectedGameProperty().addListener((observable, oldValue, newValue) -> setSelectedGame(newValue));
-    Platform.runLater(() -> {
-      gamesTableController.initializeGameTable(filteredItems);
-
-      Node root = gamesTableController.getRoot();
-      populateContainer(root);
-    });
   }
 
   private void populateContainer(Node root) {
@@ -309,27 +293,5 @@ public class CoopController {
 
     selectedGameHostLabel.textProperty().bind(game.hostProperty());
     selectedGameHostLabel.textProperty().bind(game.mapFolderNameProperty());
-
-    if (currentGame != null) {
-      currentGame.getTeams().removeListener(teamsChangeListener);
-    }
-
-    teamsChangeListener = observable -> createTeams(game.getTeams());
-    teamsChangeListener.invalidated(game.getTeams());
-    game.getTeams().addListener(teamsChangeListener);
-
-    currentGame = game;
-  }
-
-  // TODO remove duplicate code
-  private void createTeams(ObservableMap<? extends String, ? extends List<String>> playersByTeamNumber) {
-    selectedGameTeamPane.getChildren().clear();
-    synchronized (playersByTeamNumber) {
-      for (Map.Entry<? extends String, ? extends List<String>> entry : playersByTeamNumber.entrySet()) {
-        TeamCardController teamCardController = applicationContext.getBean(TeamCardController.class);
-        teamCardController.setPlayersInTeam(entry.getKey(), entry.getValue());
-        selectedGameTeamPane.getChildren().add(teamCardController.getRoot());
-      }
-    }
   }
 }

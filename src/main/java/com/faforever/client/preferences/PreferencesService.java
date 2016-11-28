@@ -6,7 +6,6 @@ import com.faforever.client.notification.Action;
 import com.faforever.client.notification.NotificationService;
 import com.faforever.client.notification.PersistentNotification;
 import com.faforever.client.notification.Severity;
-import com.faforever.client.os.OperatingSystem;
 import com.faforever.client.preferences.gson.ColorTypeAdapter;
 import com.faforever.client.preferences.gson.PathTypeAdapter;
 import com.faforever.client.preferences.gson.PropertyTypeAdapter;
@@ -19,10 +18,11 @@ import javafx.beans.property.Property;
 import javafx.scene.paint.Color;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.bridge.SLF4JBridgeHandler;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -41,6 +41,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletionStage;
 
+@Lazy
+@Service
 public class PreferencesService {
 
   public static final String FORGED_ALLIANCE_EXE = "ForgedAlliance.exe";
@@ -49,7 +51,9 @@ public class PreferencesService {
    * Points to the FAF data directory where log files, config files and others are held. The returned value varies
    * depending on the operating system.
    */
-  private static final Path FAF_DATA_DIRECTORY;
+  public static final Path FAF_DATA_DIRECTORY;
+
+  private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final long STORE_DELAY = 1000;
   private static final Charset CHARSET = StandardCharsets.UTF_8;
   private static final String PREFS_FILE_NAME = "client.prefs";
@@ -66,27 +70,13 @@ public class PreferencesService {
       Paths.get(System.getenv("ProgramFiles") + "\\Supreme Commander - Forged Alliance")
   );
   private static final String SUPREME_COMMANDER_EXE = "SupremeCommander.exe";
-  private static final Logger logger;
 
   static {
-    switch (OperatingSystem.current()) {
-      case WINDOWS:
-        FAF_DATA_DIRECTORY = Paths.get(Shell32Util.getFolderPath(ShlObj.CSIDL_COMMON_APPDATA), "FAForever");
-        break;
-
-      default:
-        FAF_DATA_DIRECTORY = Paths.get(System.getProperty("user.home")).resolve(USER_HOME_SUB_FOLDER);
+    if (org.bridj.Platform.isWindows()) {
+      FAF_DATA_DIRECTORY = Paths.get(Shell32Util.getFolderPath(ShlObj.CSIDL_COMMON_APPDATA), "FAForever");
+    } else {
+      FAF_DATA_DIRECTORY = Paths.get(System.getProperty("user.home")).resolve(USER_HOME_SUB_FOLDER);
     }
-  }
-
-  static {
-    System.setProperty("logDirectory", PreferencesService.FAF_DATA_DIRECTORY.resolve("logs").toString());
-
-    SLF4JBridgeHandler.removeHandlersForRootLogger();
-    SLF4JBridgeHandler.install();
-
-    logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    logger.debug("Logger initialized");
   }
 
   private final Path preferencesFilePath;
@@ -96,10 +86,10 @@ public class PreferencesService {
    */
   private final Timer timer;
   private final Collection<PreferenceUpdateListener> updateListeners;
-  @Resource
-  I18n i18n;
-  @Resource
-  NotificationService notificationService;
+  @Inject
+  private I18n i18n;
+  @Inject
+  private NotificationService notificationService;
   private Preferences preferences;
   private TimerTask storeInBackgroundTask;
   private OnChooseGameDirectoryListener onChooseGameDirectoryListener;
@@ -122,13 +112,10 @@ public class PreferencesService {
   }
 
   public Path getPreferencesDirectory() {
-    switch (OperatingSystem.current()) {
-      case WINDOWS:
-        return Paths.get(System.getenv("APPDATA")).resolve(APP_DATA_SUB_FOLDER);
-
-      default:
-        return Paths.get(System.getProperty("user.home")).resolve(USER_HOME_SUB_FOLDER);
+    if (org.bridj.Platform.isWindows()) {
+      return Paths.get(System.getenv("APPDATA")).resolve(APP_DATA_SUB_FOLDER);
     }
+    return Paths.get(System.getProperty("user.home")).resolve(USER_HOME_SUB_FOLDER);
   }
 
   @PostConstruct

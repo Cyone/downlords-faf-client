@@ -5,19 +5,23 @@ import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.ThreadPoolExecutor;
 
+@Lazy
+@Service
 public class TaskServiceImpl implements TaskService {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   private final ObservableList<Task<?>> activeTasks;
 
-  @Resource
+  @Inject
   ThreadPoolExecutor threadPoolExecutor;
 
   private ObservableList<Task<?>> unmodifiableObservableList;

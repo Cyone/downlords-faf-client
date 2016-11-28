@@ -38,7 +38,7 @@ public class ModUploadControllerTest extends AbstractPlainJavaFxTest {
 
   @Before
   public void setUp() throws Exception {
-    instance = loadController("mod_upload.fxml");
+    instance = new ModUploadController();
     instance.modService = modService;
     instance.notificationService = notificationService;
     instance.threadPoolExecutor = threadPoolExecutor;
@@ -50,6 +50,8 @@ public class ModUploadControllerTest extends AbstractPlainJavaFxTest {
         return null;
       }
     };
+
+    loadFxml("theme/vault/mod/mod_upload.fxml", clazz -> instance);
   }
 
   @Test

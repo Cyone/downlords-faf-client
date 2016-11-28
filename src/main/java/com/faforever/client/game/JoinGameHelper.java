@@ -1,6 +1,5 @@
 package com.faforever.client.game;
 
-import com.faforever.client.player.Player;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.map.MapService;
 import com.faforever.client.notification.Action;
@@ -9,55 +8,55 @@ import com.faforever.client.notification.ImmediateNotification;
 import com.faforever.client.notification.NotificationService;
 import com.faforever.client.notification.ReportAction;
 import com.faforever.client.notification.Severity;
+import com.faforever.client.player.Player;
 import com.faforever.client.player.PlayerService;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.reporting.ReportingService;
+import com.faforever.client.theme.UiService;
 import com.faforever.client.util.RatingUtil;
 import javafx.scene.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.lang.invoke.MethodHandles;
 import java.util.Objects;
 
 import static com.faforever.client.notification.Severity.ERROR;
 import static java.util.Arrays.asList;
 
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class JoinGameHelper {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  @Resource
+  @Inject
   ApplicationContext applicationContext;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   PlayerService playerService;
-  @Resource
+  @Inject
   GameService gameService;
-  @Resource
+  @Inject
   MapService mapService;
-  @Resource
-  CreateGameController createGameController;
-  @Resource
-  EnterPasswordController enterPasswordController;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   ReportingService reportingService;
+  @Inject
+  UiService uiService;
+
   private Node parentNode;
 
   public void setParentNode(Node parentNode) {
     this.parentNode = parentNode;
-  }
-
-  @PostConstruct
-  void postConstruct() {
-    enterPasswordController.setOnPasswordEnteredListener(this::join);
   }
 
   public void join(Game game) {
@@ -86,6 +85,8 @@ public class JoinGameHelper {
     }
 
     if (game.getPasswordProtected() && password == null) {
+      EnterPasswordController enterPasswordController = uiService.loadFxml("theme/enter_password.fxml");
+      enterPasswordController.setOnPasswordEnteredListener(this::join);
       enterPasswordController.setGame(game);
       enterPasswordController.setIgnoreRating(ignoreRating);
       enterPasswordController.showPasswordDialog(parentNode.getScene().getWindow());

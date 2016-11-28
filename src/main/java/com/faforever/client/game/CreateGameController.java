@@ -1,5 +1,6 @@
 package com.faforever.client.game;
 
+import com.faforever.client.fx.Controller;
 import com.faforever.client.fx.JavaFxUtil;
 import com.faforever.client.fx.StringListCell;
 import com.faforever.client.i18n.I18n;
@@ -16,7 +17,7 @@ import com.faforever.client.notification.ReportAction;
 import com.faforever.client.notification.Severity;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.reporting.ReportingService;
-import com.faforever.client.theme.ThemeService;
+import com.faforever.client.theme.UiService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import javafx.application.Platform;
@@ -25,7 +26,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -45,10 +45,12 @@ import javafx.util.Callback;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.lang.invoke.MethodHandles;
 import java.util.Collections;
 import java.util.Locale;
@@ -56,68 +58,55 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class CreateGameController {
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class CreateGameController implements Controller<Node> {
 
-  public static final int MAX_RATING_LENGTH = 4;
+  private static final int MAX_RATING_LENGTH = 4;
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  @FXML
-  Label mapSizeLabel;
-  @FXML
-  Label mapPlayersLabel;
-  @FXML
-  Label mapDescriptionLabel;
-  @FXML
-  Label mapNameLabel;
-  @FXML
-  TextField mapSearchTextField;
-  @FXML
-  ImageView mapImageView;
-  @FXML
-  TextField titleTextField;
-  @FXML
-  ListView<ModInfoBean> modListView;
-  @FXML
-  TextField passwordTextField;
-  @FXML
-  TextField minRankingTextField;
-  @FXML
-  TextField maxRankingTextField;
-  @FXML
-  ListView<FeaturedModBean> featuredModListView;
-  @FXML
-  ListView<MapBean> mapListView;
-  @FXML
-  Node createGameRoot;
-  @FXML
-  Button createGameButton;
 
-  @Resource
+  public Label mapSizeLabel;
+  public Label mapPlayersLabel;
+  public Label mapDescriptionLabel;
+  public Label mapNameLabel;
+  public TextField mapSearchTextField;
+  public ImageView mapImageView;
+  public TextField titleTextField;
+  public ListView<ModInfoBean> modListView;
+  public TextField passwordTextField;
+  public TextField minRankingTextField;
+  public TextField maxRankingTextField;
+  public ListView<FeaturedModBean> featuredModListView;
+  public ListView<MapBean> mapListView;
+  public Node createGameRoot;
+  public Button createGameButton;
+
+  @Inject
   Environment environment;
-  @Resource
+  @Inject
   MapService mapService;
-  @Resource
+  @Inject
   ModService modService;
-  @Resource
+  @Inject
   GameService gameService;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   Locale locale;
   @VisibleForTesting
   FilteredList<MapBean> filteredMapBeans;
-  @Resource
-  ThemeService themeService;
-  @Resource
+  @Inject
+  UiService uiService;
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   ReportingService reportingService;
 
   private Popup createGamePopup;
 
-  @FXML
-  void initialize() {
+  public void initialize() {
     mapSearchTextField.textProperty().addListener((observable, oldValue, newValue) -> {
       if (newValue.isEmpty()) {
         filteredMapBeans.setPredicate(mapInfoBean -> true);
@@ -152,14 +141,11 @@ public class CreateGameController {
 
     JavaFxUtil.makeNumericTextField(minRankingTextField, MAX_RATING_LENGTH);
     JavaFxUtil.makeNumericTextField(maxRankingTextField, MAX_RATING_LENGTH);
-  }
 
-  @PostConstruct
-  void postConstruct() {
-    modService.getFeaturedMods().thenAccept(featuredModBeans -> {
-      featuredModListView.setItems(new FilteredList<>(FXCollections.observableList(featuredModBeans), FeaturedModBean::isVisible));
+    modService.getFeaturedMods().thenAccept(featuredModBeans -> Platform.runLater(() -> {
+      featuredModListView.setItems(FXCollections.observableList(featuredModBeans).filtered(FeaturedModBean::isVisible));
       selectLastOrDefaultGameType();
-    });
+    }));
 
     if (preferencesService.getPreferences().getForgedAlliance().getPath() == null) {
       preferencesService.addUpdateListener(preferences -> {
@@ -189,17 +175,22 @@ public class CreateGameController {
     createGameButton.textProperty().bind(Bindings.createStringBinding(() -> {
       if (Strings.isNullOrEmpty(titleTextField.getText())) {
         return i18n.get("game.create.titleMissing");
+      } else if (featuredModListView.getSelectionModel().getSelectedItem() == null) {
+        return i18n.get("game.create.featuredModMissing");
       }
       return i18n.get("game.create.create");
-    }, titleTextField.textProperty()));
+    }, titleTextField.textProperty(), featuredModListView.getSelectionModel().selectedItemProperty()));
 
-    createGameButton.disableProperty().bind(titleTextField.textProperty().isEmpty());
+    createGameButton.disableProperty().bind(
+        titleTextField.textProperty().isEmpty()
+            .or(featuredModListView.getSelectionModel().selectedItemProperty().isNull())
+    );
   }
 
   private void initModList() {
     modListView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
     modListView.setCellFactory(modListCellFactory());
-    modListView.setItems(modService.getInstalledMods());
+    modListView.getItems().setAll(modService.getInstalledMods());
   }
 
   private void initMapSelection() {
@@ -223,7 +214,7 @@ public class CreateGameController {
 
     Image largePreview = mapService.loadPreview(newValue.getFolderName(), PreviewSize.LARGE);
     if (largePreview == null) {
-      new Image(themeService.getThemeFile(ThemeService.UNKNOWN_MAP_IMAGE), true);
+      new Image(uiService.getThemeFile(UiService.UNKNOWN_MAP_IMAGE), true);
     }
 
     MapSize mapSize = newValue.getSize();
@@ -311,15 +302,13 @@ public class CreateGameController {
     }
   }
 
-  @FXML
-  void onRandomMapButtonClicked() {
+  public void onRandomMapButtonClicked() {
     int mapIndex = (int) (Math.random() * filteredMapBeans.size());
     mapListView.getSelectionModel().select(mapIndex);
     mapListView.scrollTo(mapIndex);
   }
 
-  @FXML
-  void onCreateButtonClicked() {
+  public void onCreateButtonClicked() {
     ObservableList<ModInfoBean> selectedMods = modListView.getSelectionModel().getSelectedItems();
 
     Set<String> simMods = selectedMods.stream()
@@ -352,18 +341,15 @@ public class CreateGameController {
     return createGameRoot;
   }
 
-  @FXML
-  void onSelectDefaultGameTypeButtonClicked(ActionEvent event) {
+  public void onSelectDefaultGameTypeButtonClicked(ActionEvent event) {
     featuredModListView.getSelectionModel().select(0);
   }
 
-  @FXML
-  void onDeselectModsButtonClicked(ActionEvent event) {
+  public void onDeselectModsButtonClicked(ActionEvent event) {
     modListView.getSelectionModel().clearSelection();
   }
 
-  @FXML
-  void onReloadModsButtonClicked(ActionEvent event) {
+  public void onReloadModsButtonClicked(ActionEvent event) {
     modService.loadInstalledMods();
   }
 

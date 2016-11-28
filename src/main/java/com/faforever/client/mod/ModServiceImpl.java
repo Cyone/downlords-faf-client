@@ -12,13 +12,11 @@ import com.faforever.client.remote.AssetService;
 import com.faforever.client.remote.FafService;
 import com.faforever.client.task.CompletableTask;
 import com.faforever.client.task.TaskService;
-import com.faforever.client.util.ConcurrentUtil;
 import com.faforever.client.util.IdenticonUtil;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.concurrent.Task;
 import javafx.scene.image.Image;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.analysis.Analyzer;
@@ -34,9 +32,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
@@ -45,7 +46,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
@@ -54,6 +54,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -74,6 +75,8 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+@Lazy
+@Service
 public class ModServiceImpl implements ModService {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -82,27 +85,27 @@ public class ModServiceImpl implements ModService {
   private static final Pattern ACTIVE_MOD_PATTERN = Pattern.compile("\\['(.*?)']\\s*=\\s*(true|false)", Pattern.DOTALL);
   private static final Lock LOOKUP_LOCK = new ReentrantLock();
 
-  @Resource
+  @Inject
   FafService fafService;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   TaskService taskService;
-  @Resource
+  @Inject
   ApplicationContext applicationContext;
-  @Resource
+  @Inject
   ThreadPoolExecutor threadPoolExecutor;
-  @Resource
+  @Inject
   Analyzer analyzer;
-  @Resource
+  @Inject
   Directory directory;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   PlatformService platformService;
-  @Resource
+  @Inject
   AssetService assetService;
 
   private Path modsDirectory;
@@ -110,6 +113,7 @@ public class ModServiceImpl implements ModService {
   private ObservableList<ModInfoBean> installedMods;
   private ObservableList<ModInfoBean> readOnlyInstalledMods;
   private AnalyzingInfixSuggester suggester;
+  private Thread directoryWatcherThread;
 
   public ModServiceImpl() {
     pathToMod = new HashMap<>();
@@ -133,7 +137,7 @@ public class ModServiceImpl implements ModService {
       // mods/BlackOpsUnleashed/icons/yoda_icon.bmp -> icons/yoda_icon.bmp
       iconPath = iconPath.subpath(2, iconPath.getNameCount());
     } catch (IllegalArgumentException e) {
-      logger.warn("Can't load icon for mod: {}, icon path: {}", path, iconPath);
+      logger.warn("Can't display icon for mod: {}, icon path: {}", path, iconPath);
       return null;
     }
 
@@ -159,7 +163,7 @@ public class ModServiceImpl implements ModService {
   private void onModDirectoryReady() {
     try {
       createDirectories(modsDirectory);
-      startDirectoryWatcher(modsDirectory);
+      directoryWatcherThread = startDirectoryWatcher(modsDirectory);
     } catch (IOException | InterruptedException e) {
       logger.warn("Could not start mod directory watcher", e);
       // TODO notify user
@@ -167,25 +171,25 @@ public class ModServiceImpl implements ModService {
     loadInstalledMods();
   }
 
-  private void startDirectoryWatcher(Path modsDirectory) throws IOException, InterruptedException {
-    ConcurrentUtil.executeInBackground(new Task<Void>() {
-      @Override
-      protected Void call() throws Exception {
-        WatchService watcher = modsDirectory.getFileSystem().newWatchService();
-        modsDirectory.register(watcher, ENTRY_DELETE);
+  private Thread startDirectoryWatcher(Path modsDirectory) throws IOException, InterruptedException {
+    Thread thread = new Thread(() -> noCatch(() -> {
+      WatchService watcher = modsDirectory.getFileSystem().newWatchService();
+      modsDirectory.register(watcher, ENTRY_DELETE);
 
-        //noinspection InfiniteLoopStatement
-        while (true) {
+      try {
+        while (!Thread.interrupted()) {
           WatchKey key = watcher.take();
-          for (WatchEvent<?> event : key.pollEvents()) {
-            if (event.kind() == ENTRY_DELETE) {
-              removeMod(modsDirectory.resolve((Path) event.context()));
-            }
-          }
+          key.pollEvents().stream()
+              .filter(event -> event.kind() == ENTRY_DELETE)
+              .forEach(event -> removeMod(modsDirectory.resolve((Path) event.context())));
           key.reset();
         }
+      } catch (InterruptedException e) {
+        logger.debug("Watcher terminated ({})", e.getMessage());
       }
-    });
+    }));
+    thread.start();
+    return thread;
   }
 
   @Override
@@ -419,7 +423,6 @@ public class ModServiceImpl implements ModService {
     return fafService.getFeaturedMods();
   }
 
-
   @Override
   public CompletableFuture<FeaturedModBean> getFeaturedMod(String featuredMod) {
     return getFeaturedMods().thenCompose(featuredModBeans -> completedFuture(featuredModBeans.stream()
@@ -503,7 +506,7 @@ public class ModServiceImpl implements ModService {
     Files.write(preferencesFile, preferencesContent.getBytes(US_ASCII));
   }
 
-  private void removeMod(Path path) throws IOException {
+  private void removeMod(Path path) {
     installedMods.remove(pathToMod.remove(path));
   }
 
@@ -521,5 +524,10 @@ public class ModServiceImpl implements ModService {
           new Action(i18n.get("corruptedMods.show"), event -> platformService.reveal(path))
       )));
     }
+  }
+
+  @PreDestroy
+  private void preDestroy() {
+    Optional.ofNullable(directoryWatcherThread).ifPresent(Thread::interrupt);
   }
 }

@@ -5,7 +5,7 @@ import com.faforever.client.task.CompletableTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.lang.invoke.MethodHandles;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -14,7 +14,7 @@ public class UninstallModTask extends CompletableTask<Void> {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  @Resource
+  @Inject
   ModService modService;
 
   private ModInfoBean mod;

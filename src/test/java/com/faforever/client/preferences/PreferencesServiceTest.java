@@ -1,8 +1,8 @@
 package com.faforever.client.preferences;
 
-import com.faforever.client.os.OperatingSystem;
 import com.sun.jna.platform.win32.Shell32Util;
 import com.sun.jna.platform.win32.ShlObj;
+import org.bridj.Platform;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -34,13 +34,10 @@ public class PreferencesServiceTest {
 
   @Test
   public void testGetFafDataDirectory() throws Exception {
-    switch (OperatingSystem.current()) {
-      case WINDOWS:
-        assertThat(instance.getFafDataDirectory(), is(Paths.get(Shell32Util.getFolderPath(ShlObj.CSIDL_COMMON_APPDATA), "FAForever")));
-        break;
-
-      default:
-        assertThat(instance.getFafDataDirectory(), is(Paths.get(System.getProperty("user.home")).resolve(".faforever")));
+    if (Platform.isWindows()) {
+      assertThat(instance.getFafDataDirectory(), is(Paths.get(Shell32Util.getFolderPath(ShlObj.CSIDL_COMMON_APPDATA), "FAForever")));
+    } else {
+      assertThat(instance.getFafDataDirectory(), is(Paths.get(System.getProperty("user.home")).resolve(".faforever")));
     }
   }
 

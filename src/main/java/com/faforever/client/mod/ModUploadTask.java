@@ -11,7 +11,7 @@ import com.faforever.client.util.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.BufferedOutputStream;
 import java.lang.invoke.MethodHandles;
 import java.nio.file.Files;
@@ -27,11 +27,11 @@ public class ModUploadTask extends CompletableTask<Void> {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   FafApiAccessor fafApiAccessor;
-  @Resource
+  @Inject
   I18n i18n;
 
   private Path modPath;

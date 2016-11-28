@@ -9,11 +9,11 @@ import java.util.concurrent.CompletionStage;
 
 public interface ReplayService {
 
-  Collection<ReplayInfoBean> getLocalReplays() throws IOException;
+  Collection<Replay> getLocalReplays() throws IOException;
 
-  CompletionStage<List<ReplayInfoBean>> getOnlineReplays();
+  CompletionStage<List<Replay>> getOnlineReplays();
 
-  void runReplay(ReplayInfoBean item);
+  void runReplay(Replay item);
 
   void runLiveReplay(int gameId, int playerId) throws IOException;
 

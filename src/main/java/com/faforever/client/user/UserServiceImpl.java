@@ -6,9 +6,12 @@ import com.faforever.client.remote.domain.LoginMessage;
 import com.faforever.client.remote.domain.NoticeMessage;
 import com.faforever.client.task.CompletableTask;
 import com.faforever.client.task.TaskService;
+import com.faforever.client.user.event.LogOutRequestEvent;
 import com.faforever.client.user.event.LoginSuccessEvent;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -16,30 +19,34 @@ import javafx.beans.property.StringProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.CompletionStage;
 
+@Lazy
+@Service
 public class UserServiceImpl implements UserService {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private final StringProperty username;
   private final BooleanProperty loggedIn;
-  @Resource
+  @Inject
   FafService fafService;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   EventBus eventBus;
-  @Resource
+  @Inject
   ApplicationContext applicationContext;
-  @Resource
+  @Inject
   TaskService taskService;
 
   private String password;
-  private Integer uid;
+  private Integer userId;
   private CompletionStage<Void> loginFuture;
 
   public UserServiceImpl() {
@@ -48,7 +55,7 @@ public class UserServiceImpl implements UserService {
   }
 
   @Override
-  public BooleanProperty loggedInProperty() {
+  public ReadOnlyBooleanProperty loggedInProperty() {
     return loggedIn;
   }
 
@@ -64,7 +71,7 @@ public class UserServiceImpl implements UserService {
 
     loginFuture = fafService.connectAndLogIn(username, password)
         .thenAccept(loginInfo -> {
-          uid = loginInfo.getId();
+          userId = loginInfo.getId();
 
           // Because of different case (upper/lower)
           String login = loginInfo.getLogin();
@@ -74,7 +81,7 @@ public class UserServiceImpl implements UserService {
           preferencesService.storeInBackground();
 
           loggedIn.set(true);
-          eventBus.post(new LoginSuccessEvent(login));
+          eventBus.post(new LoginSuccessEvent(login, userId));
         })
         .whenComplete((aVoid, throwable) -> {
           if (throwable != null) {
@@ -96,9 +103,8 @@ public class UserServiceImpl implements UserService {
     return password;
   }
 
-  @Override
-  public Integer getUid() {
-    return uid;
+  public Integer getUserId() {
+    return userId;
   }
 
   @Override
@@ -133,7 +139,12 @@ public class UserServiceImpl implements UserService {
 
   @PostConstruct
   void postConstruct() {
-    fafService.addOnMessageListener(LoginMessage.class, loginInfo -> uid = loginInfo.getId());
+    fafService.addOnMessageListener(LoginMessage.class, loginInfo -> userId = loginInfo.getId());
     fafService.addOnMessageListener(NoticeMessage.class, noticeMessage -> cancelLogin());
+  }
+
+  @Subscribe
+  public void onLogoutRequestEvent(LogOutRequestEvent event) {
+    logOut();
   }
 }

@@ -1,19 +1,13 @@
 package com.faforever.client.main;
 
-import com.faforever.client.cast.CastsController;
-import com.faforever.client.chat.ChatController;
 import com.faforever.client.chat.ChatService;
 import com.faforever.client.chat.UserInfoWindowController;
 import com.faforever.client.fx.WindowController;
 import com.faforever.client.game.GameService;
-import com.faforever.client.game.GamesController;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.leaderboard.LeaderboardController;
 import com.faforever.client.login.LoginController;
-import com.faforever.client.map.MapVaultController;
-import com.faforever.client.mod.ModVaultController;
 import com.faforever.client.net.ConnectionState;
-import com.faforever.client.news.NewsController;
 import com.faforever.client.notification.NotificationService;
 import com.faforever.client.notification.PersistentNotificationsController;
 import com.faforever.client.notification.TransientNotification;
@@ -30,10 +24,9 @@ import com.faforever.client.preferences.ui.SettingsController;
 import com.faforever.client.rankedmatch.MatchmakerMessage;
 import com.faforever.client.remote.FafService;
 import com.faforever.client.remote.domain.RatingRange;
-import com.faforever.client.replay.ReplayVaultController;
 import com.faforever.client.task.TaskService;
 import com.faforever.client.test.AbstractPlainJavaFxTest;
-import com.faforever.client.theme.ThemeService;
+import com.faforever.client.theme.UiService;
 import com.faforever.client.update.ClientUpdateService;
 import com.faforever.client.user.UserService;
 import com.google.common.eventbus.EventBus;
@@ -76,6 +69,7 @@ import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyVararg;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -90,20 +84,6 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
   private LeaderboardController leaderboardController;
   @Mock
   private PlayerService playerService;
-  @Mock
-  private MapVaultController mapMapVaultController;
-  @Mock
-  private GamesController gamesController;
-  @Mock
-  private NewsController newsController;
-  @Mock
-  private CastsController castsController;
-  @Mock
-  private ModVaultController modVaultController;
-  @Mock
-  private ReplayVaultController replayVaultController;
-  @Mock
-  private ChatController chatController;
   @Mock
   private SettingsController settingsController;
   @Mock
@@ -131,8 +111,6 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
   @Mock
   private GameService gameService;
   @Mock
-  private UserMenuController userMenuController;
-  @Mock
   private TransientNotificationsController transientNotificationsController;
   @Mock
   private NotificationsPrefs notificationPrefs;
@@ -145,7 +123,7 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
   @Mock
   private WindowController windowController;
   @Mock
-  private ThemeService themeService;
+  private UiService uiService;
   @Mock
   private EventBus eventBus;
 
@@ -157,7 +135,7 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
 
   @Before
   public void setUp() throws Exception {
-    instance = loadController("main.fxml");
+    instance = new MainController();
     instance.stage = getStage();
     instance.i18n = i18n;
     instance.applicationContext = applicationContext;
@@ -165,27 +143,13 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
     instance.preferencesService = preferencesService;
     instance.fafService = fafService;
     instance.userService = userService;
-    instance.replayVaultController = replayVaultController;
-    instance.leaderboardController = leaderboardController;
-    instance.modVaultController = modVaultController;
-    instance.mapMapVaultController = mapMapVaultController;
-    instance.gamesController = gamesController;
-    instance.castsController = castsController;
-    instance.newsController = newsController;
-    instance.settingsController = settingsController;
-    instance.chatController = chatController;
-    instance.persistentNotificationsController = persistentNotificationsController;
     instance.notificationService = notificationService;
     instance.taskService = taskService;
     instance.clientUpdateService = clientUpdateService;
     instance.gameService = gameService;
-    instance.userMenuController = userMenuController;
-    instance.transientNotificationsController = transientNotificationsController;
-    instance.loginController = loginController;
     instance.chatService = chatService;
     instance.threadPoolExecutor = threadPoolExecutor;
-    instance.windowController = windowController;
-    instance.themeService = themeService;
+    instance.uiService = uiService;
     instance.eventBus = eventBus;
     instance.ratingBeta = 250;
 
@@ -195,13 +159,8 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
     gameRunningProperty = new SimpleBooleanProperty();
     IntegerProperty chatUnreadMessagesCountProperty = new SimpleIntegerProperty();
 
-    when(chatController.getRoot()).thenReturn(new Pane());
     when(persistentNotificationsController.getRoot()).thenReturn(new Pane());
     when(leaderboardController.getRoot()).thenReturn(new Pane());
-    when(castsController.getRoot()).thenReturn(new Pane());
-    when(userMenuController.getRoot()).thenReturn(new Pane());
-    when(newsController.getRoot()).thenReturn(new Pane());
-    when(userMenuController.getRoot()).thenReturn(new Pane());
     when(transientNotificationsController.getRoot()).thenReturn(new Pane());
     when(taskService.getActiveTasks()).thenReturn(FXCollections.emptyObservableList());
     when(preferencesService.getPreferences()).thenReturn(preferences);
@@ -216,15 +175,22 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
     when(notificationPrefs.getToastPosition()).thenReturn(ToastPosition.BOTTOM_RIGHT);
     when(fafService.connectionStateProperty()).thenReturn(connectionStateProperty);
     when(chatService.connectionStateProperty()).thenReturn(chatConnectionStateProperty);
-    when(chatService.unreadMessagesCount()).thenReturn(chatUnreadMessagesCountProperty);
     when(userService.loggedInProperty()).thenReturn(loggedInProperty);
     when(gameService.gameRunningProperty()).thenReturn(gameRunningProperty);
+    when(uiService.loadFxml("theme/persistent_notifications.fxml")).thenReturn(persistentNotificationsController);
+    when(uiService.loadFxml("theme/transient_notifications.fxml")).thenReturn(transientNotificationsController);
+    when(uiService.loadFxml("theme/window.fxml")).thenReturn(windowController);
+    when(uiService.loadFxml("theme/settings/settings.fxml")).thenReturn(settingsController);
+    when(uiService.loadFxml("theme/login.fxml")).thenReturn(loginController);
 
-    doAnswer(invocation -> getThemeFile(invocation.getArgumentAt(0, String.class))).when(themeService).getThemeFile(any());
+    doAnswer(invocation -> getThemeFile(invocation.getArgumentAt(0, String.class))).when(uiService).getThemeFile(any());
 
-    instance.postConstruct();
-
-    verify(userService).loggedInProperty();
+    loadFxml("theme/main.fxml", clazz -> {
+      if (clazz == instance.getClass()) {
+        return instance;
+      }
+      return mock(clazz);
+    });
 
     mainControllerInitializedLatch = new CountDownLatch(1);
     // As the login check is executed AFTER the main controller has been switched to logged in state, we hook to it
@@ -240,7 +206,6 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
     attachToRoot();
     fakeLogin();
 
-    when(chatController.getRoot()).thenReturn(new Pane());
     WaitForAsyncUtils.waitForAsyncFx(1000, () -> instance.display());
     when(mainWindowPrefs.getLastView()).thenReturn(instance.newsButton.getId());
 
@@ -307,18 +272,6 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
   }
 
   @Test
-  @Ignore("Not yet implemented")
-  public void testOnPortCheckHelpClicked() throws Exception {
-    instance.onPortCheckHelpClicked();
-  }
-
-  @Test
-  @Ignore("Not yet implemented")
-  public void testOnChangePortClicked() throws Exception {
-    instance.onChangePortClicked();
-  }
-
-  @Test
   public void testOnFafReconnectClicked() throws Exception {
     instance.onFafReconnectClicked();
     verify(fafService).reconnect();
@@ -339,17 +292,11 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
   }
 
   @Test
-  @Ignore("Not yet implemented")
-  public void testOnSupportItemSelected() throws Exception {
-    instance.onSupportItemSelected();
-  }
-
-  @Test
   public void testOnSettingsItemSelected() throws Exception {
     attachToRoot();
     Pane root = new Pane();
     when(settingsController.getRoot()).thenReturn(root);
-    WaitForAsyncUtils.waitForAsyncFx(1000, instance::onSettingsItemSelected);
+    WaitForAsyncUtils.waitForAsyncFx(1000, instance::onSettingsSelected);
 
     verify(windowController).configure(
         any(), eq(root), eq(true), eq(WindowController.WindowButtonType.CLOSE)
@@ -367,70 +314,6 @@ public class MainControllerTest extends AbstractPlainJavaFxTest {
     assertThat(instance.getRoot().getParent(), CoreMatchers.is(nullValue()));
   }
 
-  @Test
-  public void testOnVaultSelected() throws Exception {
-    attachToRoot();
-    when(modVaultController.getRoot()).thenReturn(new Pane());
-    WaitForAsyncUtils.waitForAsyncFx(1000, instance.vaultButton::fire);
-  }
-
-  @Test
-  public void testOnLeaderboardSelected() throws Exception {
-    attachToRoot();
-    when(leaderboardController.getRoot()).thenReturn(new Pane());
-    WaitForAsyncUtils.waitForAsyncFx(1000, instance.leaderboardButton::fire);
-  }
-
-  @Test
-  public void testOnPlaySelected() throws Exception {
-    attachToRoot();
-    when(gamesController.getRoot()).thenReturn(new Pane());
-    WaitForAsyncUtils.waitForAsyncFx(1000, instance.playButton::fire);
-  }
-
-  @Test
-  public void testOnChatSelected() throws Exception {
-    WaitForAsyncUtils.waitForAsyncFx(1000, instance.chatButton::fire);
-  }
-
-  @Test
-  public void testOnNewsSelected() throws Exception {
-    WaitForAsyncUtils.waitForAsyncFx(1000, instance.newsButton::fire);
-  }
-
-  @Test
-  public void testOnPlayCustomSelected() throws Exception {
-    attachToRoot();
-    when(gamesController.getRoot()).thenReturn(new Pane());
-    WaitForAsyncUtils.waitForAsyncFx(1000, () -> instance.playButton.getItems().get(0).fire());
-  }
-
-  @Test
-  @Ignore("Not yet implemented")
-  public void testOnPlayRanked1v1Selected() throws Exception {
-    WaitForAsyncUtils.waitForAsyncFx(1000, () -> instance.playButton.getItems().get(1).fire());
-  }
-
-  @Test
-  public void testOnModsSelected() throws Exception {
-    attachToRoot();
-    when(modVaultController.getRoot()).thenReturn(new Pane());
-    WaitForAsyncUtils.waitForAsyncFx(1000, () -> instance.vaultButton.getItems().get(0).fire());
-  }
-
-  @Test
-  public void testOnReplaysSelected() throws Exception {
-    attachToRoot();
-    when(replayVaultController.getRoot()).thenReturn(new Pane());
-    WaitForAsyncUtils.waitForAsyncFx(1000, () -> instance.vaultButton.getItems().get(2).fire());
-  }
-
-  @Test
-  public void testOnLeaderboardRanked1v1Selected() throws Exception {
-    attachToRoot();
-    when(leaderboardController.getRoot()).thenReturn(new Pane());
-    WaitForAsyncUtils.waitForAsyncFx(1000, () -> instance.leaderboardButton.getItems().get(0).fire());
-  }
 
   @Test
   public void testOnMatchMakerMessageDisplaysNotification80Quality() {

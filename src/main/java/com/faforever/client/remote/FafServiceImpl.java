@@ -2,6 +2,7 @@ package com.faforever.client.remote;
 
 import com.faforever.client.api.CoopLeaderboardEntry;
 import com.faforever.client.api.FafApiAccessor;
+import com.faforever.client.api.FeaturedMod;
 import com.faforever.client.api.FeaturedModFile;
 import com.faforever.client.api.Ranked1v1Stats;
 import com.faforever.client.api.RatingType;
@@ -10,26 +11,30 @@ import com.faforever.client.chat.avatar.event.AvatarChangedEvent;
 import com.faforever.client.config.CacheNames;
 import com.faforever.client.coop.CoopMission;
 import com.faforever.client.domain.RatingHistoryDataPoint;
+import com.faforever.client.fa.relay.GpgGameMessage;
 import com.faforever.client.game.Faction;
-import com.faforever.client.mod.FeaturedModBean;
+import com.faforever.client.game.KnownFeaturedMod;
 import com.faforever.client.game.NewGameInfo;
 import com.faforever.client.leaderboard.Ranked1v1EntryBean;
 import com.faforever.client.map.MapBean;
+import com.faforever.client.mod.FeaturedModBean;
 import com.faforever.client.mod.ModInfoBean;
 import com.faforever.client.net.ConnectionState;
 import com.faforever.client.player.Player;
-import com.faforever.client.fa.relay.GpgGameMessage;
 import com.faforever.client.remote.domain.GameEndedMessage;
 import com.faforever.client.remote.domain.GameLaunchMessage;
 import com.faforever.client.remote.domain.LoginMessage;
 import com.faforever.client.remote.domain.SdpRecordClientMessage;
 import com.faforever.client.remote.domain.ServerMessage;
-import com.faforever.client.replay.ReplayInfoBean;
+import com.faforever.client.replay.Replay;
 import com.google.common.eventbus.EventBus;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -41,15 +46,17 @@ import static java.lang.Long.parseLong;
 import static java.time.LocalDateTime.ofEpochSecond;
 import static java.time.ZoneOffset.UTC;
 
+@Lazy
+@Service
 public class FafServiceImpl implements FafService {
 
-  @Resource
+  @Inject
   FafServerAccessor fafServerAccessor;
-  @Resource
+  @Inject
   FafApiAccessor fafApiAccessor;
-  @Resource
+  @Inject
   ThreadPoolExecutor threadPoolExecutor;
-  @Resource
+  @Inject
   EventBus eventBus;
 
   @Override
@@ -127,11 +134,6 @@ public class FafServiceImpl implements FafService {
   @Override
   public Long getSessionId() {
     return fafServerAccessor.getSessionId();
-  }
-
-  @Override
-  public CompletionStage<List<Ranked1v1EntryBean>> getRanked1v1Entries() {
-    return CompletableFuture.supplyAsync(() -> fafApiAccessor.getRanked1v1Entries(), threadPoolExecutor);
   }
 
   @Override
@@ -244,18 +246,34 @@ public class FafServiceImpl implements FafService {
   public CompletableFuture<List<FeaturedModBean>> getFeaturedMods() {
     return CompletableFuture.supplyAsync(() -> fafApiAccessor.getFeaturedMods())
         .thenApply(featuredMods -> featuredMods.stream()
-            .sorted((o1, o2) -> Integer.compare(o1.getDisplayOrder(), o2.getDisplayOrder()))
+            .sorted(Comparator.comparingInt(FeaturedMod::getDisplayOrder))
             .map(FeaturedModBean::fromFeaturedMod)
             .collect(Collectors.toList()));
   }
 
   @Override
-  public CompletionStage<List<ReplayInfoBean>> getOnlineReplays() {
+  public CompletionStage<List<Replay>> getOnlineReplays() {
     return fafApiAccessor.getOnlineReplays();
   }
 
   @Override
   public CompletableFuture<List<FeaturedModFile>> getFeaturedModFiles(FeaturedModBean featuredMod, Integer version) {
     return CompletableFuture.supplyAsync(() -> fafApiAccessor.getFeaturedModFiles(featuredMod, version));
+  }
+
+  @Override
+  public CompletionStage<List<Ranked1v1EntryBean>> getLeaderboardEntries(KnownFeaturedMod mod) {
+    RatingType ratingType;
+    switch (mod) {
+      case FAF:
+        ratingType = RatingType.GLOBAL;
+        break;
+      case LADDER_1V1:
+        ratingType = RatingType.LADDER_1V1;
+        break;
+      default:
+        throw new IllegalArgumentException("Not supported: " + mod);
+    }
+    return CompletableFuture.supplyAsync(() -> fafApiAccessor.getLeaderboardEntries(ratingType));
   }
 }

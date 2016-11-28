@@ -1,5 +1,6 @@
 package com.faforever.client.remote;
 
+import com.faforever.client.fa.relay.GpgGameMessage;
 import com.faforever.client.game.Faction;
 import com.faforever.client.game.KnownFeaturedMod;
 import com.faforever.client.game.NewGameInfo;
@@ -11,7 +12,6 @@ import com.faforever.client.notification.PersistentNotification;
 import com.faforever.client.notification.Severity;
 import com.faforever.client.rankedmatch.MatchmakerMessage;
 import com.faforever.client.rankedmatch.MatchmakerMessage.MatchmakerQueue;
-import com.faforever.client.fa.relay.GpgGameMessage;
 import com.faforever.client.remote.domain.Avatar;
 import com.faforever.client.remote.domain.GameAccess;
 import com.faforever.client.remote.domain.GameInfoMessage;
@@ -30,8 +30,11 @@ import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.lang.invoke.MethodHandles;
 import java.net.URL;
 import java.util.Arrays;
@@ -51,19 +54,23 @@ import static com.faforever.client.remote.domain.GameAccess.PUBLIC;
 import static com.faforever.client.task.CompletableTask.Priority.HIGH;
 import static java.util.Collections.singletonList;
 
+@Lazy
+@Component
+@Profile("local")
+// NOSONAR
 public class MockFafServerAccessor implements FafServerAccessor {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final String USER_NAME = "MockUser";
   private final Timer timer;
   private final HashMap<Class<? extends ServerMessage>, Collection<Consumer<ServerMessage>>> messageListeners;
-  @Resource
+  @Inject
   UserService userService;
-  @Resource
+  @Inject
   TaskService taskService;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   I18n i18n;
   private ObjectProperty<ConnectionState> connectionState;
 

@@ -39,7 +39,7 @@ public class ModDetailControllerTest extends AbstractPlainJavaFxTest {
 
   @Before
   public void setUp() throws Exception {
-    instance = loadController("mod_detail.fxml");
+    instance = new ModDetailController();
     instance.modService = modService;
     instance.notificationService = notificationService;
     instance.reportingService = reportingService;
@@ -47,6 +47,8 @@ public class ModDetailControllerTest extends AbstractPlainJavaFxTest {
 
     installedMods = FXCollections.observableArrayList();
     when(modService.getInstalledMods()).thenReturn(installedMods);
+
+    loadFxml("theme/vault/mod/mod_detail.fxml", clazz -> instance);
   }
 
   @Test

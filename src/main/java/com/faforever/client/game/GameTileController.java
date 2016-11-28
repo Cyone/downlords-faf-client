@@ -1,11 +1,13 @@
 package com.faforever.client.game;
 
+import com.faforever.client.fx.Controller;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.map.MapService;
 import com.faforever.client.map.MapServiceImpl.PreviewSize;
 import com.faforever.client.mod.ModService;
+import com.faforever.client.theme.UiService;
 import com.google.common.base.Joiner;
-import javafx.fxml.FXML;
+import javafx.application.Platform;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
@@ -13,47 +15,41 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 import static javafx.beans.binding.Bindings.createObjectBinding;
 import static javafx.beans.binding.Bindings.createStringBinding;
 
-public class GameTileController {
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component
+public class GameTileController implements Controller<Node> {
 
-  @FXML
-  Label lockIconLabel;
-  @FXML
-  Label gameTypeLabel;
-  @FXML
-  Node gameTileRoot;
-  @FXML
-  Label gameMapLabel;
-  @FXML
-  Label gameTitleLabel;
-  @FXML
-  Label numberOfPlayersLabel;
-  @FXML
-  Label hostLabel;
-  @FXML
-  Label modsLabel;
-  @FXML
-  ImageView mapImageView;
+  public Label lockIconLabel;
+  public Label gameTypeLabel;
+  public Node gameTileRoot;
+  public Label gameMapLabel;
+  public Label gameTitleLabel;
+  public Label numberOfPlayersLabel;
+  public Label hostLabel;
+  public Label modsLabel;
+  public ImageView mapImageView;
 
-  @Resource
+  @Inject
   MapService mapService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
-  ApplicationContext applicationContext;
-  @Resource
+  @Inject
   JoinGameHelper joinGameHelper;
-  @Resource
+  @Inject
   ModService modService;
+  @Inject
+  UiService uiService;
   private Consumer<Game> onSelectedListener;
   private Game game;
 
@@ -61,16 +57,11 @@ public class GameTileController {
     this.onSelectedListener = onSelectedListener;
   }
 
-  @FXML
-  void initialize() {
+  public void initialize() {
     modsLabel.managedProperty().bind(modsLabel.visibleProperty());
     modsLabel.visibleProperty().bind(modsLabel.textProperty().isNotEmpty());
     gameTypeLabel.managedProperty().bind(gameTypeLabel.visibleProperty());
     lockIconLabel.managedProperty().bind(lockIconLabel.visibleProperty());
-  }
-
-  @PostConstruct
-  void postConstruct() {
     joinGameHelper.setParentNode(getRoot());
   }
 
@@ -82,7 +73,7 @@ public class GameTileController {
     this.game = game;
 
     modService.getFeaturedMod(game.getFeaturedMod())
-        .thenAccept(featuredModBean -> gameTypeLabel.setText(StringUtils.defaultString(featuredModBean.getDisplayName())));
+        .thenAccept(featuredModBean -> Platform.runLater(() -> gameTypeLabel.setText(StringUtils.defaultString(featuredModBean.getDisplayName()))));
 
     gameTitleLabel.setText(game.getTitle());
     hostLabel.setText(game.getHost());
@@ -112,7 +103,7 @@ public class GameTileController {
     Tooltip.install(gameTileRoot, tooltip);
     tooltip.activatedProperty().addListener((observable, oldValue, newValue) -> {
       if (newValue) {
-        GameTooltipController gameTooltipController = applicationContext.getBean(GameTooltipController.class);
+        GameTooltipController gameTooltipController = uiService.loadFxml("theme/play/game_tooltip.fxml");
         gameTooltipController.setGameInfoBean(game);
         tooltip.setGraphic(gameTooltipController.getRoot());
       }
@@ -124,8 +115,7 @@ public class GameTileController {
     });
   }
 
-  @FXML
-  void onClick(MouseEvent mouseEvent) {
+  public void onClick(MouseEvent mouseEvent) {
     Objects.requireNonNull(onSelectedListener, "onSelectedListener has not been set");
     Objects.requireNonNull(game, "gameInfoBean has not been set");
 

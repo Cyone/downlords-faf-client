@@ -9,6 +9,7 @@ import com.faforever.client.preferences.ChatPrefs;
 import com.faforever.client.preferences.Preferences;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.test.AbstractPlainJavaFxTest;
+import com.faforever.client.theme.UiService;
 import com.faforever.client.uploader.ImageUploadService;
 import com.faforever.client.user.UserService;
 import com.faforever.client.util.TimeService;
@@ -29,7 +30,9 @@ import org.testfx.util.WaitForAsyncUtils;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.verify;
@@ -67,17 +70,21 @@ public class ChannelTabControllerTest extends AbstractPlainJavaFxTest {
   @Mock
   private ThreadPoolExecutor threadPoolExecutor;
   @Mock
-  private FilterUserController filterUserController;
-  @Mock
   private Stage stage;
   @Mock
   private AutoCompletionHelper autoCompletionHelper;
+  @Mock
+  private UiService uiService;
+  @Mock
+  private UserFilterController userFilterController;
+  @Mock
+  private ChatUserItemController chatUserItemController;
 
   private ChannelTabController instance;
 
   @Before
   public void setUp() throws Exception {
-    instance = loadController("channel_tab.fxml");
+    instance = new ChannelTabController();
     instance.chatService = chatService;
     instance.userService = userService;
     instance.imageUploadService = imageUploadService;
@@ -88,8 +95,8 @@ public class ChannelTabControllerTest extends AbstractPlainJavaFxTest {
     instance.platformService = platformService;
     instance.i18n = i18n;
     instance.threadPoolExecutor = threadPoolExecutor;
-    instance.filterUserController = filterUserController;
     instance.autoCompletionHelper = autoCompletionHelper;
+    instance.uiService = uiService;
     instance.stage = getStage();
 
     ObjectProperty<ChatColorMode> chatColorModeProperty = new SimpleObjectProperty<>(ChatColorMode.DEFAULT);
@@ -101,9 +108,12 @@ public class ChannelTabControllerTest extends AbstractPlainJavaFxTest {
     when(chatPrefs.getZoom()).thenReturn(1d);
     when(userService.getUsername()).thenReturn(USER_NAME);
     when(chatPrefs.chatColorModeProperty()).thenReturn(chatColorModeProperty);
-    when(filterUserController.getRoot()).thenReturn(new Pane());
+    when(uiService.loadFxml("theme/chat/user_filter.fxml")).thenReturn(userFilterController);
+    when(uiService.loadFxml("theme/chat/chat_user_item.fxml")).thenReturn(chatUserItemController);
+    when(userFilterController.getRoot()).thenReturn(new Pane());
+    when(chatUserItemController.getRoot()).thenReturn(new Pane());
 
-    instance.postConstruct();
+    loadFxml("theme/channel_tab.fxml", clazz -> instance);
 
     TabPane tabPane = new TabPane();
     tabPane.getTabs().add(instance.getRoot());

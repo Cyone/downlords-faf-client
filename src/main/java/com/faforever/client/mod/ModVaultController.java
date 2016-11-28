@@ -1,16 +1,17 @@
 package com.faforever.client.mod;
 
+import com.faforever.client.fx.AbstractViewController;
 import com.faforever.client.fx.JavaFxUtil;
 import com.faforever.client.fx.WindowController;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.mod.event.ModUploadedEvent;
 import com.faforever.client.preferences.PreferencesService;
+import com.faforever.client.theme.UiService;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -22,10 +23,11 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.nio.file.Path;
@@ -37,57 +39,48 @@ import java.util.stream.Collectors;
 
 import static com.faforever.client.fx.WindowController.WindowButtonType.CLOSE;
 
-public class ModVaultController {
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class ModVaultController extends AbstractViewController<Node> {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final int TOP_ELEMENT_COUNT = 7;
   private static final int MAX_SUGGESTIONS = 10;
+  private static final int LOAD_MORE_COUNT = 200;
 
-  @FXML
-  Pane searchResultGroup;
-  @FXML
-  Pane searchResultPane;
-  @FXML
-  Pane showroomGroup;
-  @FXML
-  Pane loadingPane;
-  @FXML
-  TextField searchTextField;
-  @FXML
-  Pane recommendedUiModsPane;
-  @FXML
-  Pane newestModsPane;
-  @FXML
-  Pane popularModsPane;
-  @FXML
-  Pane mostLikedModsPane;
-  @FXML
-  Pane modVaultRoot;
+  public Pane searchResultGroup;
+  public Pane searchResultPane;
+  public Pane showroomGroup;
+  public Pane loadingPane;
+  public TextField searchTextField;
+  public Pane recommendedUiModsPane;
+  public Pane newestModsPane;
+  public Pane popularModsPane;
+  public Pane mostLikedModsPane;
+  public Pane modVaultRoot;
 
-  @Resource
+  @Inject
   ModService modService;
-  @Resource
-  ApplicationContext applicationContext;
-  @Resource
-  ModDetailController modDetailController;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   EventBus eventBus;
+  @Inject
+  UiService uiService;
 
   private boolean initialized;
+  private ModDetailController modDetailController;
 
-  @FXML
-  void initialize() {
+  @Override
+  public void initialize() {
+    super.initialize();
     loadingPane.managedProperty().bind(loadingPane.visibleProperty());
     showroomGroup.managedProperty().bind(showroomGroup.visibleProperty());
     searchResultGroup.managedProperty().bind(searchResultGroup.visibleProperty());
-  }
+    modDetailController = uiService.loadFxml("theme/vault/mod/mod_detail.fxml");
 
-  @PostConstruct
-  void postConstruct() {
     Node modDetailRoot = modDetailController.getRoot();
     modVaultRoot.getChildren().add(modDetailRoot);
     AnchorPane.setTopAnchor(modDetailRoot, 0d);
@@ -99,7 +92,8 @@ public class ModVaultController {
     eventBus.register(this);
   }
 
-  public void setUpIfNecessary() {
+  @Override
+  public void onDisplay() {
     if (initialized) {
       return;
     }
@@ -112,10 +106,11 @@ public class ModVaultController {
 
   private void displayShowroomMods() {
     enterLoadingState();
-    modService.getMostDownloadedMods(TOP_ELEMENT_COUNT).thenAccept(modInfoBeans -> populateMods(modInfoBeans, popularModsPane))
-        .thenCompose(aVoid -> modService.getMostLikedMods(TOP_ELEMENT_COUNT)).thenAccept(modInfoBeans -> populateMods(modInfoBeans, mostLikedModsPane))
-        .thenCompose(aVoid -> modService.getNewestMods(TOP_ELEMENT_COUNT)).thenAccept(modInfoBeans -> populateMods(modInfoBeans, newestModsPane))
-        .thenCompose(aVoid -> modService.getMostLikedUiMods(TOP_ELEMENT_COUNT)).thenAccept(modInfoBeans -> populateMods(modInfoBeans, recommendedUiModsPane))
+    modService.getMostDownloadedMods(TOP_ELEMENT_COUNT)
+        .thenAccept(modInfoBeans -> populateMods(modInfoBeans, popularModsPane))
+        .thenCompose(aVoid -> modService.getMostLikedMods(TOP_ELEMENT_COUNT).thenAccept(modInfoBeans -> populateMods(modInfoBeans, mostLikedModsPane)))
+        .thenCompose(aVoid -> modService.getNewestMods(TOP_ELEMENT_COUNT).thenAccept(modInfoBeans -> populateMods(modInfoBeans, newestModsPane)))
+        .thenCompose(aVoid -> modService.getMostLikedUiMods(TOP_ELEMENT_COUNT).thenAccept(modInfoBeans -> populateMods(modInfoBeans, recommendedUiModsPane)))
         .thenRun(this::enterShowroomState)
         .exceptionally(throwable -> {
           logger.warn("Could not populate mods", throwable);
@@ -123,8 +118,7 @@ public class ModVaultController {
         });
   }
 
-  @FXML
-  void onSearchModButtonClicked() {
+  public void onSearchModButtonClicked() {
     if (searchTextField.getText().isEmpty()) {
       onResetButtonClicked();
       return;
@@ -146,7 +140,7 @@ public class ModVaultController {
     Platform.runLater(() -> {
       children.clear();
       for (ModInfoBean mod : modInfoBeans) {
-        ModTileController controller = applicationContext.getBean(ModTileController.class);
+        ModCardController controller = uiService.loadFxml("theme/vault/mod/mod_card.fxml");
         controller.setMod(mod);
         controller.setOnOpenDetailListener(this::onShowModDetail);
         children.add(controller.getRoot());
@@ -154,8 +148,7 @@ public class ModVaultController {
     });
   }
 
-  @FXML
-  void onResetButtonClicked() {
+  public void onResetButtonClicked() {
     searchTextField.clear();
     showroomGroup.setVisible(true);
     searchResultGroup.setVisible(false);
@@ -202,8 +195,7 @@ public class ModVaultController {
     loadingPane.setVisible(false);
   }
 
-  @FXML
-  void onShowModDetail(ModInfoBean mod) {
+  public void onShowModDetail(ModInfoBean mod) {
     modDetailController.setMod(mod);
     modDetailController.getRoot().setVisible(true);
     modDetailController.getRoot().requestFocus();
@@ -235,14 +227,14 @@ public class ModVaultController {
   }
 
   private void openModUploadWindow(Path path) {
-    ModUploadController modUploadController = applicationContext.getBean(ModUploadController.class);
+    ModUploadController modUploadController = uiService.loadFxml("theme/vault/mod/mod_upload.fxml");
     modUploadController.setModPath(path);
 
     Stage modUploadWindow = new Stage(StageStyle.TRANSPARENT);
     modUploadWindow.initModality(Modality.NONE);
     modUploadWindow.initOwner(getRoot().getScene().getWindow());
 
-    WindowController windowController = applicationContext.getBean(WindowController.class);
+    WindowController windowController = uiService.loadFxml("theme/window.fxml");
     windowController.configure(modUploadWindow, modUploadController.getRoot(), true, CLOSE);
 
     modUploadWindow.show();
@@ -256,5 +248,25 @@ public class ModVaultController {
   @Subscribe
   public void onModUploaded(ModUploadedEvent event) {
     onRefreshClicked();
+  }
+
+  public void showMoreRecommendedUiMods() {
+    enterLoadingState();
+    modService.getMostLikedUiMods(LOAD_MORE_COUNT).thenAccept(this::displaySearchResult);
+  }
+
+  public void showMoreNewestMods() {
+    enterLoadingState();
+    modService.getNewestMods(LOAD_MORE_COUNT).thenAccept(this::displaySearchResult);
+  }
+
+  public void showMorePopularMods() {
+    enterLoadingState();
+    modService.getMostPlayedMods(LOAD_MORE_COUNT).thenAccept(this::displaySearchResult);
+  }
+
+  public void showMoreMostLikedMods() {
+    enterLoadingState();
+    modService.getMostLikedMods(LOAD_MORE_COUNT).thenAccept(this::displaySearchResult);
   }
 }

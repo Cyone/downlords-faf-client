@@ -12,7 +12,7 @@ import com.faforever.client.remote.AssetService;
 import com.faforever.client.remote.FafService;
 import com.faforever.client.remote.UpdatedAchievementsMessage;
 import com.faforever.client.test.AbstractPlainJavaFxTest;
-import com.faforever.client.theme.ThemeService;
+import com.faforever.client.theme.UiService;
 import com.faforever.client.user.UserService;
 import com.google.api.client.json.JsonFactory;
 import org.junit.Before;
@@ -71,7 +71,7 @@ public class AchievementServiceImplTest extends AbstractPlainJavaFxTest {
   @Mock
   private FafApiAccessor fafApiAccessor;
   @Mock
-  private ThemeService themeService;
+  private UiService uiService;
   @Mock
   private FafService fafService;
   @Mock
@@ -91,10 +91,10 @@ public class AchievementServiceImplTest extends AbstractPlainJavaFxTest {
     instance.fafService = fafService;
     instance.playerService = playerService;
     instance.threadPoolExecutor = threadPoolExecutor;
-    instance.themeService = themeService;
+    instance.uiService = uiService;
     instance.assetService = assetService;
 
-    when(userService.getUid()).thenReturn(PLAYER_ID);
+    when(userService.getUserId()).thenReturn(PLAYER_ID);
     when(userService.getUsername()).thenReturn(USERNAME);
 
     doAnswer(invocation -> {

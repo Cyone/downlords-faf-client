@@ -14,10 +14,10 @@ import com.faforever.client.preferences.Preferences;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.stats.StatisticsService;
 import com.faforever.client.test.AbstractPlainJavaFxTest;
+import com.faforever.client.theme.UiService;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
-import org.springframework.context.ApplicationContext;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -54,7 +54,7 @@ public class UserInfoWindowControllerTest extends AbstractPlainJavaFxTest {
   @Mock
   private EventService eventService;
   @Mock
-  private ApplicationContext applicationContext;
+  private UiService uiService;
   @Mock
   private PreferencesService preferencesService;
   @Mock
@@ -64,23 +64,26 @@ public class UserInfoWindowControllerTest extends AbstractPlainJavaFxTest {
 
   @Before
   public void setUp() throws Exception {
-    instance = loadController("user_info_window.fxml");
+    instance = new UserInfoWindowController();
     instance.countryFlagService = countryFlagService;
     instance.locale = locale;
     instance.i18n = i18n;
     instance.statisticsService = statisticsService;
     instance.achievementService = achievementService;
     instance.eventService = eventService;
-    instance.applicationContext = applicationContext;
+    instance.uiService = uiService;
     instance.preferencesService = preferencesService;
 
     when(preferencesService.getPreferences()).thenReturn(preferences);
     when(preferences.getThemeName()).thenReturn("default");
+    when(uiService.loadFxml("theme/achievement_item.fxml")).thenReturn(achievementItemController);
 
     when(statisticsService.getRatingHistory(any(), eq(PLAYER_ID))).thenReturn(CompletableFuture.completedFuture(Arrays.asList(
         new RatingHistoryDataPoint(LocalDateTime.now(), 1500, 50),
         new RatingHistoryDataPoint(LocalDateTime.now().plusDays(1), 1500, 50)
     )));
+
+    loadFxml("theme/user_info_window.fxml", clazz -> instance);
   }
 
   @Test
@@ -88,7 +91,7 @@ public class UserInfoWindowControllerTest extends AbstractPlainJavaFxTest {
     when(achievementService.getAchievementDefinitions()).thenReturn(CompletableFuture.completedFuture(singletonList(
         AchievementDefinitionBuilder.create().defaultValues().get()
     )));
-    when(applicationContext.getBean(AchievementItemController.class)).thenReturn(achievementItemController);
+    when(uiService.loadFxml("theme/achievement_item.fxml")).thenReturn(achievementItemController);
     when(achievementService.getPlayerAchievements(PLAYER_NAME)).thenReturn(CompletableFuture.completedFuture(
         singletonList(PlayerAchievementBuilder.create().defaultValues().get())
     ));
@@ -115,7 +118,7 @@ public class UserInfoWindowControllerTest extends AbstractPlainJavaFxTest {
         AchievementDefinitionBuilder.create().id("foo-bar").get(),
         AchievementDefinitionBuilder.create().defaultValues().get()
     )));
-    when(applicationContext.getBean(AchievementItemController.class)).thenReturn(achievementItemController);
+    when(uiService.loadFxml("theme/achievement_item.fxml")).thenReturn(achievementItemController);
     when(achievementService.getPlayerAchievements(PLAYER_NAME)).thenReturn(CompletableFuture.completedFuture(asList(
         PlayerAchievementBuilder.create().defaultValues().achievementId("foo-bar").state(AchievementState.UNLOCKED).get(),
         PlayerAchievementBuilder.create().defaultValues().get()

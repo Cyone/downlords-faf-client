@@ -1,5 +1,6 @@
 package com.faforever.client.mod;
 
+import com.faforever.client.fx.Controller;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.notification.ImmediateNotification;
 import com.faforever.client.notification.NotificationService;
@@ -8,7 +9,6 @@ import com.faforever.client.notification.Severity;
 import com.faforever.client.reporting.ReportingService;
 import javafx.collections.ListChangeListener;
 import javafx.collections.WeakListChangeListener;
-import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -16,46 +16,41 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseEvent;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 
 import static java.util.Collections.singletonList;
 
-public class ModDetailController {
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class ModDetailController implements Controller<Node> {
 
-  @FXML
-  Label progressLabel;
-  @FXML
-  Button uninstallButton;
-  @FXML
-  Button installButton;
-  @FXML
-  ImageView thumbnailImageView;
-  @FXML
-  Label nameLabel;
-  @FXML
-  Label authorLabel;
-  @FXML
-  ProgressBar progressBar;
-  @FXML
-  Label modDescriptionLabel;
-  @FXML
-  Node modDetailRoot;
+  public Label progressLabel;
+  public Button uninstallButton;
+  public Button installButton;
+  public ImageView thumbnailImageView;
+  public Label nameLabel;
+  public Label authorLabel;
+  public ProgressBar progressBar;
+  public Label modDescriptionLabel;
+  public Node modDetailRoot;
 
-  @Resource
+  @Inject
   ModService modService;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   ReportingService reportingService;
 
   private ModInfoBean mod;
   private ListChangeListener<ModInfoBean> installStatusChangeListener;
 
-  @FXML
-  void initialize() {
+  public void initialize() {
     uninstallButton.managedProperty().bind(uninstallButton.visibleProperty());
     installButton.managedProperty().bind(installButton.visibleProperty());
     progressBar.managedProperty().bind(progressBar.visibleProperty());
@@ -115,8 +110,7 @@ public class ModDetailController {
     setInstalled(modService.isModInstalled(mod.getId()));
   }
 
-  @FXML
-  void onInstallButtonClicked() {
+  public void onInstallButtonClicked() {
     installButton.setVisible(false);
 
     modService.downloadAndInstallMod(mod, progressBar.progressProperty(), progressLabel.textProperty())
@@ -129,8 +123,7 @@ public class ModDetailController {
         });
   }
 
-  @FXML
-  void onUninstallButtonClicked() {
+  public void onUninstallButtonClicked() {
     progressBar.progressProperty().unbind();
     progressBar.setProgress(-1);
     uninstallButton.setVisible(false);
@@ -144,8 +137,7 @@ public class ModDetailController {
     });
   }
 
-  @FXML
-  void onDimmerClicked() {
+  public void onDimmerClicked() {
     onCloseButtonClicked();
   }
 

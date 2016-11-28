@@ -80,7 +80,7 @@ public class UserServiceImplTest {
 //    assertEquals("junit", instance.getUsername());
 //    assertEquals("junitPw", instance.getPassword());
 //    assertEquals("session", instance.getSessionId());
-//    assertEquals(1234, instance.getUid());
+//    assertEquals(1234, instance.getUserId());
 //    assertEquals("junit@example.com", instance.getEmail());
 //  }
 

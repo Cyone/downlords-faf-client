@@ -1,12 +1,15 @@
 package com.faforever.client.api;
 
 import com.faforever.client.coop.CoopMission;
-import com.faforever.client.mod.FeaturedModBean;
 import com.faforever.client.io.ByteCountListener;
 import com.faforever.client.leaderboard.Ranked1v1EntryBean;
 import com.faforever.client.map.MapBean;
+import com.faforever.client.mod.FeaturedModBean;
 import com.faforever.client.mod.ModInfoBean;
-import com.faforever.client.replay.ReplayInfoBean;
+import com.faforever.client.replay.Replay;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -17,6 +20,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
+@Lazy
+@Component
+@Profile("local")
+// NOSONAR
 public class MockFafApiAccessor implements FafApiAccessor {
 
   @Override
@@ -79,7 +86,7 @@ public class MockFafApiAccessor implements FafApiAccessor {
   }
 
   @Override
-  public List<Ranked1v1EntryBean> getRanked1v1Entries() {
+  public List<Ranked1v1EntryBean> getLeaderboardEntries(RatingType ratingType) {
     return null;
   }
 
@@ -139,7 +146,7 @@ public class MockFafApiAccessor implements FafApiAccessor {
   }
 
   @Override
-  public CompletionStage<List<ReplayInfoBean>> getOnlineReplays() {
+  public CompletionStage<List<Replay>> getOnlineReplays() {
     return CompletableFuture.completedFuture(Collections.emptyList());
   }
 

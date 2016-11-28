@@ -1,14 +1,14 @@
 package com.faforever.client.fa.relay.ice;
 
+import com.faforever.client.fa.relay.GpgGameMessage;
 import com.faforever.client.fa.relay.ice.event.GpgGameMessageEvent;
 import com.faforever.client.fa.relay.ice.event.IceAdapterStateChanged;
-import com.faforever.client.fa.relay.GpgGameMessage;
 import com.faforever.client.remote.FafService;
 import com.google.common.eventbus.EventBus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
 
@@ -19,10 +19,10 @@ public class IceAdapterCallbacks {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  @Resource
+  @Inject
   EventBus eventBus;
 
-  @Resource
+  @Inject
   FafService fafService;
 
   public void onNeedSdp(long localPlayerId, long remotePlayerId) {

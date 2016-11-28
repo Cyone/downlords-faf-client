@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.invoke.MethodHandles;
@@ -27,9 +27,9 @@ public class CheckForUpdateTask extends CompletableTask<UpdateInfo> {
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private final Gson gson;
 
-  @Resource
+  @Inject
   Environment environment;
-  @Resource
+  @Inject
   I18n i18n;
 
   private ComparableVersion currentVersion;

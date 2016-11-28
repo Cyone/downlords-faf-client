@@ -3,7 +3,6 @@ package com.faforever.client.patch;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.io.ByteCopier;
 import com.faforever.client.notification.NotificationService;
-import com.faforever.client.os.OperatingSystem;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.task.CompletableTask;
 import com.faforever.client.task.ResourceLocks;
@@ -18,7 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -42,8 +41,6 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class GameBinariesUpdateTask extends CompletableTask<Void> {
 
-  private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-
   @VisibleForTesting
   static final Collection<String> BINARIES_TO_COPY = Arrays.asList(
       "BsSndRpt.exe",
@@ -60,17 +57,18 @@ public class GameBinariesUpdateTask extends CompletableTask<Void> {
       "wxmsw24u-vs80.dll",
       "zlibwapi.dll"
   );
+  private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final int[] VERSION_ADDRESSES = new int[]{0xd3d40, 0x47612d, 0x476666};
 
-  @Resource
+  @Inject
   TaskService taskService;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   ApplicationContext applicationContext;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
 
   @Value("${fafExe.url}")
@@ -79,6 +77,22 @@ public class GameBinariesUpdateTask extends CompletableTask<Void> {
 
   public GameBinariesUpdateTask() {
     super(Priority.HIGH);
+  }
+
+  @VisibleForTesting
+  static void updateVersionInExe(Integer version, Path exePath) throws IOException {
+    byte[] versionAsLittleEndianBytes = toLittleEndianByteArray(version);
+    try (RandomAccessFile randomAccessFile = new RandomAccessFile(exePath.toFile(), "rw")) {
+      logger.debug("Updating version in {} to {}", exePath, version);
+      for (int versionAddress : VERSION_ADDRESSES) {
+        randomAccessFile.seek(versionAddress);
+        randomAccessFile.write(versionAsLittleEndianBytes);
+      }
+    }
+  }
+
+  private static byte[] toLittleEndianByteArray(int i) {
+    return ByteBuffer.allocate(Integer.SIZE / Byte.SIZE).order(ByteOrder.LITTLE_ENDIAN).putInt(i).array();
   }
 
   @PostConstruct
@@ -96,20 +110,8 @@ public class GameBinariesUpdateTask extends CompletableTask<Void> {
     copyGameFilesToFafBinDirectory();
     downloadFafExeIfNecessary(exePath);
     updateVersionInExe(version, exePath);
-    logger.info("Binaries have been updated successfully");
+    logger.debug("Binaries have been updated successfully");
     return null;
-  }
-
-  @VisibleForTesting
-  static void updateVersionInExe(Integer version, Path exePath) throws IOException {
-    byte[] versionAsLittleEndianBytes = toLittleEndianByteArray(version);
-    try (RandomAccessFile randomAccessFile = new RandomAccessFile(exePath.toFile(), "rw")) {
-      logger.debug("Updating version in {} to {}", exePath, version);
-      for (int versionAddress : VERSION_ADDRESSES) {
-        randomAccessFile.seek(versionAddress);
-        randomAccessFile.write(versionAsLittleEndianBytes);
-      }
-    }
   }
 
   private void downloadFafExeIfNecessary(Path exePath) throws IOException {
@@ -151,14 +153,10 @@ public class GameBinariesUpdateTask extends CompletableTask<Void> {
           noCatch(() -> createDirectories(destination.getParent()));
           noCatch(() -> copy(source, destination, REPLACE_EXISTING));
 
-          if (OperatingSystem.current() == OperatingSystem.WINDOWS) {
+          if (org.bridj.Platform.isWindows()) {
             noCatch(() -> setAttribute(destination, "dos:readonly", false));
           }
         });
-  }
-
-  private static byte[] toLittleEndianByteArray(int i) {
-    return ByteBuffer.allocate(Integer.SIZE / Byte.SIZE).order(ByteOrder.LITTLE_ENDIAN).putInt(i).array();
   }
 
   public void setVersion(ComparableVersion version) {

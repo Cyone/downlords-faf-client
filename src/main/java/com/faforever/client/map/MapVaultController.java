@@ -1,15 +1,16 @@
 package com.faforever.client.map;
 
+import com.faforever.client.fx.AbstractViewController;
 import com.faforever.client.fx.JavaFxUtil;
 import com.faforever.client.fx.WindowController;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.map.event.MapUploadedEvent;
 import com.faforever.client.preferences.PreferencesService;
+import com.faforever.client.theme.UiService;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
-import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -21,10 +22,11 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.nio.file.Path;
@@ -36,55 +38,45 @@ import java.util.stream.Collectors;
 
 import static com.faforever.client.fx.WindowController.WindowButtonType.CLOSE;
 
-public class MapVaultController {
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class MapVaultController extends AbstractViewController<Node> {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final int TOP_ELEMENT_COUNT = 7;
   private static final int MAX_SUGGESTIONS = 10;
 
-  @FXML
-  Pane searchResultGroup;
-  @FXML
-  Pane searchResultPane;
-  @FXML
-  Pane showroomGroup;
-  @FXML
-  Pane loadingPane;
-  @FXML
-  TextField searchTextField;
-  @FXML
-  Pane newestMapsPane;
-  @FXML
-  Pane popularMapsPane;
-  @FXML
-  Pane recommendedMapsPane;
-  @FXML
-  Pane mapVaultRoot;
+  public Pane searchResultGroup;
+  public Pane searchResultPane;
+  public Pane showroomGroup;
+  public Pane loadingPane;
+  public TextField searchTextField;
+  public Pane newestMapsPane;
+  public Pane popularMapsPane;
+  public Pane recommendedMapsPane;
+  public Pane mapVaultRoot;
 
-  @Resource
+  @Inject
   MapService mapService;
-  @Resource
-  ApplicationContext applicationContext;
-  @Resource
-  MapDetailController mapDetailController;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   EventBus eventBus;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
+  @Inject
+  UiService uiService;
 
   private boolean initialized;
+  private MapDetailController mapDetailController;
 
-  @FXML
-  void initialize() {
+  @Override
+  public void initialize() {
+    super.initialize();
     loadingPane.managedProperty().bind(loadingPane.visibleProperty());
     showroomGroup.managedProperty().bind(showroomGroup.visibleProperty());
     searchResultGroup.managedProperty().bind(searchResultGroup.visibleProperty());
-  }
-
-  @PostConstruct
-  void postConstruct() {
+    mapDetailController = uiService.loadFxml("theme/vault/map/map_detail.fxml");
     Node mapDetailRoot = mapDetailController.getRoot();
     mapVaultRoot.getChildren().add(mapDetailRoot);
     AnchorPane.setTopAnchor(mapDetailRoot, 0d);
@@ -96,7 +88,8 @@ public class MapVaultController {
     eventBus.register(this);
   }
 
-  public void setUpIfNecessary() {
+  @Override
+  public void onDisplay() {
     if (initialized) {
       return;
     }
@@ -119,8 +112,7 @@ public class MapVaultController {
         });
   }
 
-  @FXML
-  void onSearchMapButtonClicked() {
+  public void onSearchMapButtonClicked() {
     if (searchTextField.getText().isEmpty()) {
       onResetButtonClicked();
       return;
@@ -142,7 +134,7 @@ public class MapVaultController {
     Platform.runLater(() -> {
       children.clear();
       for (MapBean map : maps) {
-        MapTileController controller = applicationContext.getBean(MapTileController.class);
+        MapCardController controller = uiService.loadFxml("theme/vault/map/map_card.fxml");
         controller.setMap(map);
         controller.setOnOpenDetailListener(this::onShowMapDetail);
         children.add(controller.getRoot());
@@ -150,8 +142,7 @@ public class MapVaultController {
     });
   }
 
-  @FXML
-  void onResetButtonClicked() {
+  public void onResetButtonClicked() {
     searchTextField.clear();
     showroomGroup.setVisible(true);
     searchResultGroup.setVisible(false);
@@ -198,23 +189,10 @@ public class MapVaultController {
     loadingPane.setVisible(false);
   }
 
-  @FXML
-  void onShowMapDetail(MapBean map) {
+  public void onShowMapDetail(MapBean map) {
     mapDetailController.setMap(map);
     mapDetailController.getRoot().setVisible(true);
     mapDetailController.getRoot().requestFocus();
-  }
-
-  @FXML
-  void onSearchMapsButtonClicked() {
-    if (searchTextField.getText().isEmpty()) {
-      onResetButtonClicked();
-      return;
-    }
-    enterSearchResultState();
-
-    mapService.lookupMap(searchTextField.getText(), 100)
-        .thenAccept(this::displaySearchResult);
   }
 
   private void displaySearchResult(List<MapBean> maps) {
@@ -243,14 +221,14 @@ public class MapVaultController {
   }
 
   private void openMapUploadWindow(Path path) {
-    MapUploadController mapUploadController = applicationContext.getBean(MapUploadController.class);
+    MapUploadController mapUploadController = uiService.loadFxml("theme/vault/map/map_upload.fxml");
     mapUploadController.setMapPath(path);
 
     Stage mapUploadWindow = new Stage(StageStyle.TRANSPARENT);
     mapUploadWindow.initModality(Modality.NONE);
     mapUploadWindow.initOwner(getRoot().getScene().getWindow());
 
-    WindowController windowController = applicationContext.getBean(WindowController.class);
+    WindowController windowController = uiService.loadFxml("theme/window.fxml");
     windowController.configure(mapUploadWindow, mapUploadController.getRoot(), true, CLOSE);
 
     mapUploadWindow.show();

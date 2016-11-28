@@ -71,7 +71,7 @@
                         <RowConstraints minHeight="10.0" vgrow="ALWAYS"/>
                       </rowConstraints>
                       <children>
-                        <GridPane prefWidth="250.0" styleClass="tile">
+                        <GridPane prefWidth="250.0" styleClass="card">
                           <columnConstraints>
                             <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0"/>
                           </columnConstraints>
@@ -82,10 +82,10 @@
                           <children>
                             <Label styleClass="h2" text="%ranked1v1.gamesPlayed"/>
                             <Label fx:id="gamesPlayedLabel" alignment="CENTER" maxWidth="1.7976931348623157E308"
-                                   prefHeight="80.0" styleClass="ranked1v1-big-value" text="000" GridPane.rowIndex="1"/>
+                                   prefHeight="80.0" styleClass="h1" text="000" GridPane.rowIndex="1"/>
                           </children>
                         </GridPane>
-                        <GridPane prefWidth="250.0" styleClass="tile" GridPane.columnIndex="1">
+                        <GridPane prefWidth="250.0" styleClass="card" GridPane.columnIndex="1">
                           <columnConstraints>
                             <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0"/>
                           </columnConstraints>
@@ -95,12 +95,12 @@
                           </rowConstraints>
                           <children>
                             <Label styleClass="h2" text="%userInfo.ratingGlobal"/>
-                            <Label fx:id="ratingLabelGlobal" prefHeight="80.0" styleClass="ranked1v1-big-value"
+                            <Label fx:id="ratingLabelGlobal" prefHeight="80.0" styleClass="h1"
                                    text="0000" GridPane.halignment="CENTER" GridPane.rowIndex="1"
                                    GridPane.valignment="CENTER"/>
                           </children>
                         </GridPane>
-                        <GridPane prefWidth="250.0" styleClass="tile" GridPane.columnIndex="2">
+                        <GridPane prefWidth="250.0" styleClass="card" GridPane.columnIndex="2">
                           <columnConstraints>
                             <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0"/>
                           </columnConstraints>
@@ -110,11 +110,11 @@
                           </rowConstraints>
                           <children>
                             <Label styleClass="h2" text="%userInfo.rating1v1"/>
-                            <Label fx:id="ratingLabel1v1" prefHeight="80.0" styleClass="ranked1v1-big-value" text="0000"
+                            <Label fx:id="ratingLabel1v1" prefHeight="80.0" styleClass="h1" text="0000"
                                    GridPane.halignment="CENTER" GridPane.rowIndex="1" GridPane.valignment="CENTER"/>
                           </children>
                         </GridPane>
-                        <VBox styleClass="tile" GridPane.columnSpan="2147483647" GridPane.rowIndex="1">
+                        <VBox styleClass="card" GridPane.columnSpan="2147483647" GridPane.rowIndex="1">
                           <children>
                             <HBox alignment="TOP_RIGHT" spacing="10.0">
                               <children>
@@ -157,7 +157,7 @@
             </ScrollPane>
           </content>
           <graphic>
-            <Label styleClass="fontawesome" text=""/>
+              <Label styleClass="icon" text=""/>
           </graphic>
         </Tab>
         <Tab text="%userInfo.statistics">
@@ -174,7 +174,7 @@
                     <RowConstraints minHeight="10.0" vgrow="SOMETIMES"/>
                   </rowConstraints>
                   <children>
-                    <VBox styleClass="tile">
+                    <VBox styleClass="card">
                       <children>
                         <StackedBarChart fx:id="factionsChart" maxHeight="1.7976931348623157E308"
                                          maxWidth="1.7976931348623157E308" title="%userInfo.winLossPerFaction">
@@ -187,19 +187,19 @@
                         </StackedBarChart>
                       </children>
                     </VBox>
-                    <VBox styleClass="tile" GridPane.columnIndex="1">
+                    <VBox styleClass="card" GridPane.columnIndex="1">
                       <children>
                         <PieChart fx:id="unitsBuiltChart" maxHeight="1.7976931348623157E308"
                                   maxWidth="1.7976931348623157E308" title="%userInfo.builtByCategory"/>
                       </children>
                     </VBox>
-                    <VBox styleClass="tile" GridPane.rowIndex="1">
+                    <VBox styleClass="card" GridPane.rowIndex="1">
                       <children>
                         <PieChart fx:id="techBuiltChart" maxHeight="1.7976931348623157E308"
                                   maxWidth="1.7976931348623157E308" title="%userInfo.builtByTech"/>
                       </children>
                     </VBox>
-                    <VBox styleClass="tile" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                    <VBox styleClass="card" GridPane.columnIndex="1" GridPane.rowIndex="1">
                       <children>
                         <PieChart fx:id="gamesPlayedChart" maxHeight="1.7976931348623157E308"
                                   maxWidth="1.7976931348623157E308" title="%userInfo.gamesPlayed"/>
@@ -211,7 +211,7 @@
             </ScrollPane>
           </content>
           <graphic>
-            <Label styleClass="fontawesome" text=""/>
+              <Label styleClass="icon" text=""/>
           </graphic>
         </Tab>
         <Tab closable="false" text="%userInfo.achievements">
@@ -294,7 +294,7 @@
             </VBox>
           </content>
           <graphic>
-            <Label styleClass="fontawesome" text=""/>
+              <Label styleClass="icon" text=""/>
           </graphic>
         </Tab>
       </tabs>

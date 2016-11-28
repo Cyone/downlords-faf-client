@@ -16,7 +16,9 @@ public class TransientNotificationControllerTest extends AbstractPlainJavaFxTest
 
   @Before
   public void setUp() throws Exception {
-    instance = loadController("transient_notification.fxml");
+    instance = new TransientNotificationController();
+
+    loadFxml("theme/transient_notification.fxml", clazz -> instance);
   }
 
   @Test

@@ -1,12 +1,11 @@
 package com.faforever.client.chat;
 
 import com.faforever.client.chat.avatar.AvatarService;
+import com.faforever.client.fx.Controller;
 import com.faforever.client.fx.JavaFxUtil;
 import com.faforever.client.game.Game;
-import com.faforever.client.game.GameService;
-import com.faforever.client.game.GameStatus;
-import com.faforever.client.game.GamesController;
 import com.faforever.client.game.JoinGameHelper;
+import com.faforever.client.game.PlayerStatus;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.notification.ImmediateNotification;
 import com.faforever.client.notification.NotificationService;
@@ -17,7 +16,8 @@ import com.faforever.client.preferences.ChatPrefs;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.replay.ReplayService;
 import com.faforever.client.reporting.ReportingService;
-import com.faforever.client.theme.ThemeService;
+import com.faforever.client.theme.UiService;
+import com.faforever.client.util.TimeService;
 import com.google.common.eventbus.EventBus;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -25,10 +25,9 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.WeakChangeListener;
 import javafx.collections.MapChangeListener;
 import javafx.collections.WeakMapChangeListener;
-import javafx.fxml.FXML;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.MouseButton;
@@ -36,65 +35,64 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.stage.PopupWindow;
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 
 import static com.faforever.client.chat.ChatColorMode.CUSTOM;
 import static com.faforever.client.chat.SocialStatus.SELF;
+import static com.faforever.client.game.PlayerStatus.IDLE;
+import static com.faforever.client.game.PlayerStatus.PLAYING;
 import static com.faforever.client.util.RatingUtil.getGlobalRating;
 import static com.faforever.client.util.RatingUtil.getLeaderboardRating;
+import static java.time.Instant.now;
 import static java.util.Collections.singletonList;
 import static java.util.Locale.US;
 
-public class ChatUserItemController {
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+// TODO null safety for "player"
+public class ChatUserItemController implements Controller<Node> {
 
   private static final String CLAN_TAG_FORMAT = "[%s]";
 
-  @FXML
-  Pane chatUserItemRoot;
-  @FXML
-  ImageView countryImageView;
-  @FXML
-  ImageView avatarImageView;
-  @FXML
-  Label usernameLabel;
-  @FXML
-  Label clanLabel;
-  @FXML
-  ImageView statusImageView;
+  public Pane chatUserItemRoot;
+  public ImageView countryImageView;
+  public ImageView avatarImageView;
+  public Label usernameLabel;
+  public Label clanLabel;
+  public Label statusLabel;
 
-  @Resource
-  ApplicationContext applicationContext;
-  @Resource
+  @Inject
   AvatarService avatarService;
-  @Resource
+  @Inject
   CountryFlagService countryFlagService;
-  @Resource
-  GameService gameService;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   ChatService chatService;
-  @Resource
-  GamesController gamesController;
-  @Resource
+  @Inject
   ReplayService replayService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
-  ThemeService themeService;
-  @Resource
+  @Inject
+  UiService uiService;
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   ReportingService reportingService;
-  @Resource
+  @Inject
   JoinGameHelper joinGameHelper;
-  @Resource
+  @Inject
   EventBus eventBus;
+  @Inject
+  TimeService timeService;
 
   private Player player;
   private boolean colorsAllowedInPane;
@@ -102,29 +100,20 @@ public class ChatUserItemController {
   private MapChangeListener<? super String, ? super Color> colorPerUserMapChangeListener;
   private ChangeListener<String> avatarChangeListener;
   private ChangeListener<String> clanChangeListener;
-  private ChangeListener<GameStatus> gameStatusChangeListener;
+  private ChangeListener<PlayerStatus> gameStatusChangeListener;
+  private ChangeListener<Instant> idleSinceListener;
 
-  @FXML
-  void initialize() {
+  public ChatUserItemController() {
+    idleSinceListener = (observable, oldValue, newValue) -> Platform.runLater(this::updateIdleTime);
+  }
+
+  public void initialize() {
     chatUserItemRoot.setUserData(this);
-  }
+    countryImageView.managedProperty().bind(countryImageView.visibleProperty());
+    countryImageView.setVisible(false);
+    statusLabel.managedProperty().bind(statusLabel.visibleProperty());
+    statusLabel.visibleProperty().bind(statusLabel.textProperty().isNotEmpty());
 
-  @FXML
-  void onContextMenuRequested(ContextMenuEvent event) {
-    ChatUserContextMenuController contextMenuController = applicationContext.getBean(ChatUserContextMenuController.class);
-    contextMenuController.setPlayer(player);
-    contextMenuController.getContextMenu().show(chatUserItemRoot.getScene().getWindow(), event.getScreenX(), event.getScreenY());
-  }
-
-  @FXML
-  void onUsernameClicked(MouseEvent mouseEvent) {
-    if (mouseEvent.getButton() == MouseButton.PRIMARY && mouseEvent.getClickCount() == 2) {
-      eventBus.post(new InitiatePrivateChatEvent(player.getUsername()));
-    }
-  }
-
-  @PostConstruct
-  void postConstruct() {
     ChatPrefs chatPrefs = preferencesService.getPreferences().getChat();
 
     colorModeChangeListener = (observable, oldValue, newValue) -> configureColor();
@@ -137,8 +126,20 @@ public class ChatUserItemController {
     };
     avatarChangeListener = (observable, oldValue, newValue) -> Platform.runLater(() -> setAvatarUrl(newValue));
     clanChangeListener = (observable, oldValue, newValue) -> Platform.runLater(() -> setClanTag(newValue));
-    gameStatusChangeListener = (observable, oldValue, newValue) -> Platform.runLater(() -> setGameStatus(newValue));
+    gameStatusChangeListener = (observable, oldValue, newValue) -> Platform.runLater(this::updateGameStatus);
     joinGameHelper.setParentNode(getRoot());
+  }
+
+  public void onContextMenuRequested(ContextMenuEvent event) {
+    ChatUserContextMenuController contextMenuController = uiService.loadFxml("theme/chat/chat_user_context_menu.fxml");
+    contextMenuController.setPlayer(player);
+    contextMenuController.getContextMenu().show(chatUserItemRoot.getScene().getWindow(), event.getScreenX(), event.getScreenY());
+  }
+
+  public void onUsernameClicked(MouseEvent mouseEvent) {
+    if (mouseEvent.getButton() == MouseButton.PRIMARY && mouseEvent.getClickCount() == 2) {
+      eventBus.post(new InitiatePrivateChatEvent(player.getUsername()));
+    }
   }
 
   private void configureColor() {
@@ -198,23 +199,28 @@ public class ChatUserItemController {
     }
   }
 
-  public void setGameStatus(GameStatus gameStatus) {
-    Image statusImage;
-    switch (gameStatus) {
-      case PLAYING:
-        statusImage = themeService.getThemeImage(ThemeService.PLAYING_STATUS_IMAGE);
-        break;
-      case HOST:
-        statusImage = themeService.getThemeImage(ThemeService.HOSTING_STATUS_IMAGE);
-        break;
-      case LOBBY:
-        statusImage = themeService.getThemeImage(ThemeService.LOBBY_STATUS_IMAGE);
-        break;
-      default:
-        statusImage = null;
+  private void updateGameStatus() {
+    if (this.player == null || player.getGame() == null) {
+      statusLabel.setText("");
+      return;
     }
-    statusImageView.setImage(statusImage);
-    statusImageView.setVisible(statusImageView.getImage() != null);
+
+    Game game = player.getGame();
+
+    switch (player.getStatus()) {
+      case IDLE:
+        statusLabel.setText("");
+        break;
+      case HOSTING:
+        statusLabel.setText(i18n.get("user.status.hosting", game.getTitle()));
+        break;
+      case LOBBYING:
+        statusLabel.setText(i18n.get("user.status.waiting", game.getTitle()));
+        break;
+      case PLAYING:
+        statusLabel.setText(i18n.get("user.status.playing", game.getTitle()));
+        break;
+    }
   }
 
   public Pane getRoot() {
@@ -234,17 +240,23 @@ public class ChatUserItemController {
     configureAvatarImageView();
     configureClanLabel();
     configureGameStatusView();
+    Platform.runLater(this::updateIdleTime);
 
     usernameLabel.setText(player.getUsername());
+    player.idleSinceProperty().addListener(new WeakChangeListener<>(idleSinceListener));
   }
 
   private void addChatColorModeListener() {
     ChatPrefs chatPrefs = preferencesService.getPreferences().getChat();
-    chatPrefs.chatColorModeProperty().addListener(new WeakChangeListener<>(colorModeChangeListener));
+    synchronized (chatPrefs.chatColorModeProperty()) {
+      chatPrefs.chatColorModeProperty().addListener(new WeakChangeListener<>(colorModeChangeListener));
+    }
   }
 
   private void configureCountryImageView() {
     setCountry(player.getCountry());
+
+    countryImageView.setVisible(true);
 
     Tooltip countryTooltip = new Tooltip(player.getCountry());
     countryTooltip.textProperty().bind(player.countryProperty());
@@ -269,8 +281,8 @@ public class ChatUserItemController {
   }
 
   private void configureGameStatusView() {
-    setGameStatus(player.getGameStatus());
-    player.gameStatusProperty().addListener(new WeakChangeListener<>(gameStatusChangeListener));
+    player.statusProperty().addListener(new WeakChangeListener<>(gameStatusChangeListener));
+    updateGameStatus();
   }
 
   private void setCountry(String country) {
@@ -282,22 +294,7 @@ public class ChatUserItemController {
     }
   }
 
-  @FXML
-  void onMouseEnterGameStatus() {
-    if (player.getGameStatus() == GameStatus.NONE) {
-      return;
-    }
-
-    GameStatusTooltipController gameStatusTooltipController = applicationContext.getBean(GameStatusTooltipController.class);
-    gameStatusTooltipController.setGameInfoBean(player.getGame());
-
-    Tooltip statusTooltip = new Tooltip();
-    statusTooltip.setGraphic(gameStatusTooltipController.getRoot());
-    Tooltip.install(statusImageView, statusTooltip);
-  }
-
-  @FXML
-  void onMouseEnterUsername() {
+  public void onMouseEnterUsername() {
     if (player.getChatOnly() || usernameLabel.getTooltip() != null) {
       return;
     }
@@ -315,20 +312,18 @@ public class ChatUserItemController {
     ));
   }
 
-  @FXML
+  public   // TODO use or remove
   void onMouseClickGameStatus(MouseEvent mouseEvent) {
-    GameStatus gameStatus = player.getGameStatus();
-    if (gameStatus == GameStatus.NONE) {
+    PlayerStatus playerStatus = player.getStatus();
+    if (playerStatus == PlayerStatus.IDLE) {
       return;
     }
     if (mouseEvent.getButton() == MouseButton.PRIMARY && mouseEvent.getClickCount() == 2) {
-      int uid = player.getGame().getId();
-      if (gameStatus == GameStatus.LOBBY || gameStatus == GameStatus.HOST) {
-        Game game = gameService.getByUid(uid);
-        joinGameHelper.join(game);
-      } else if (gameStatus == GameStatus.PLAYING) {
+      if (playerStatus == PlayerStatus.LOBBYING || playerStatus == PlayerStatus.HOSTING) {
+        joinGameHelper.join(player.getGame());
+      } else if (playerStatus == PLAYING) {
         try {
-          replayService.runLiveReplay(uid, player.getId());
+          replayService.runLiveReplay(player.getGame().getId(), player.getId());
         } catch (IOException e) {
           notificationService.addNotification(new ImmediateNotification(
               i18n.get("errorTitle"), i18n.get("replayCouldNotBeStarted"),
@@ -339,7 +334,7 @@ public class ChatUserItemController {
     }
   }
 
-  public void setColorsAllowedInPane(boolean colorsAllowedInPane) {
+  void setColorsAllowedInPane(boolean colorsAllowedInPane) {
     this.colorsAllowedInPane = colorsAllowedInPane;
     configureColor();
   }
@@ -347,5 +342,17 @@ public class ChatUserItemController {
   public void setVisible(boolean visible) {
     chatUserItemRoot.setVisible(visible);
     chatUserItemRoot.setManaged(visible);
+  }
+
+  void updateIdleTime() {
+    JavaFxUtil.assertApplicationThread();
+    if (player == null || player.getStatus() != IDLE) {
+      return;
+    }
+    if (player.getIdleSince().isBefore(now().minus(Duration.ofMinutes(10)))) {
+      statusLabel.setText(i18n.get("user.status.idle", timeService.shortDuration(Duration.between(player.getIdleSince(), now()))));
+    } else {
+      statusLabel.setText("");
+    }
   }
 }

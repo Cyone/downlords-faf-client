@@ -1,12 +1,13 @@
 package com.faforever.client.login;
 
+import com.faforever.client.fx.Controller;
 import com.faforever.client.preferences.LoginPrefs;
 import com.faforever.client.preferences.PreferencesService;
 import com.faforever.client.user.UserService;
 import com.google.common.base.Strings;
 import com.google.common.hash.Hashing;
 import javafx.application.Platform;
-import javafx.fxml.FXML;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
@@ -14,44 +15,40 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.Pane;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.CancellationException;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class LoginController {
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class LoginController implements Controller<Node> {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  @FXML
-  Pane loginFormPane;
-  @FXML
-  Pane loginProgressPane;
-  @FXML
-  CheckBox autoLoginCheckBox;
-  @FXML
-  TextField usernameInput;
-  @FXML
-  TextField passwordInput;
-  @FXML
-  Button loginButton;
-  @FXML
-  Label loginErrorLabel;
-  @FXML
-  Pane loginRoot;
+  public Pane loginFormPane;
+  public Pane loginProgressPane;
+  public CheckBox autoLoginCheckBox;
+  public TextField usernameInput;
+  public TextField passwordInput;
+  public Button loginButton;
+  public Label loginErrorLabel;
+  public Pane loginRoot;
 
-  @Resource
+  @Inject
   UserService userService;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
 
   private boolean autoLogin;
 
-  @FXML
-  private void initialize() {
+  public void initialize() {
     loginProgressPane.setVisible(false);
     loginErrorLabel.managedProperty().bind(loginErrorLabel.visibleProperty());
     autoLogin = true;
@@ -108,8 +105,7 @@ public class LoginController {
     });
   }
 
-  @FXML
-  void loginButtonClicked() {
+  public void loginButtonClicked() {
     String username = usernameInput.getText();
     String password = passwordInput.getText();
 
@@ -120,7 +116,6 @@ public class LoginController {
     login(username, password, autoLogin);
   }
 
-  @FXML
   public void onCancelLoginButtonClicked() {
     userService.cancelLogin();
     setShowLoginProgress(false);

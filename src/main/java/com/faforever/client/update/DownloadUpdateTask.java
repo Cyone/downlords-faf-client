@@ -8,7 +8,7 @@ import com.faforever.client.task.ResourceLocks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -22,10 +22,10 @@ public class DownloadUpdateTask extends CompletableTask<Path> {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  @Resource
+  @Inject
   I18n i18n;
 
-  @Resource
+  @Inject
   PreferencesService preferencesService;
 
   private UpdateInfo updateInfo;

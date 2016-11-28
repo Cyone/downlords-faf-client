@@ -6,8 +6,10 @@ import javafx.scene.image.Image;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.HttpURLConnection;
@@ -17,11 +19,14 @@ import java.nio.file.Path;
 
 import static com.github.nocatch.NoCatch.noCatch;
 
+
+@Lazy
+@Service
 public class AssetServiceImpl implements AssetService {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  @Resource
+  @Inject
   PreferencesService preferencesService;
 
   @Override

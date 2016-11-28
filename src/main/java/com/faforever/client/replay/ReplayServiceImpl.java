@@ -24,9 +24,11 @@ import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
@@ -53,6 +55,9 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 
+
+@Lazy
+@Service
 public class ReplayServiceImpl implements ReplayService {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -68,29 +73,29 @@ public class ReplayServiceImpl implements ReplayService {
   private static final String GPGNET_SCHEME = "gpgnet";
   private static final String TEMP_SCFA_REPLAY_FILE_NAME = "temp.scfareplay";
 
-  @Resource
+  @Inject
   Environment environment;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
-  @Resource
+  @Inject
   ReplayFileReader replayFileReader;
-  @Resource
+  @Inject
   NotificationService notificationService;
-  @Resource
+  @Inject
   GameService gameService;
-  @Resource
+  @Inject
   TaskService taskService;
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   ReportingService reportingService;
-  @Resource
+  @Inject
   ApplicationContext applicationContext;
-  @Resource
+  @Inject
   PlatformService platformService;
-  @Resource
+  @Inject
   ReplayServer replayServer;
-  @Resource
+  @Inject
   FafService fafService;
 
   @VisibleForTesting
@@ -116,8 +121,8 @@ public class ReplayServiceImpl implements ReplayService {
   }
 
   @Override
-  public Collection<ReplayInfoBean> getLocalReplays() throws IOException {
-    Collection<ReplayInfoBean> replayInfos = new ArrayList<>();
+  public Collection<Replay> getLocalReplays() throws IOException {
+    Collection<Replay> replayInfos = new ArrayList<>();
 
     String replayFileGlob = environment.getProperty("replayFileGlob");
 
@@ -129,7 +134,7 @@ public class ReplayServiceImpl implements ReplayService {
       for (Path replayFile : directoryStream) {
         try {
           LocalReplayInfo replayInfo = replayFileReader.readReplayInfo(replayFile);
-          replayInfos.add(new ReplayInfoBean(replayInfo, replayFile));
+          replayInfos.add(new Replay(replayInfo, replayFile));
         } catch (Exception e) {
           logger.warn("Could not read replay file {} ({})", replayFile, e.getMessage());
           moveCorruptedReplayFile(replayFile);
@@ -159,12 +164,12 @@ public class ReplayServiceImpl implements ReplayService {
   }
 
   @Override
-  public CompletionStage<List<ReplayInfoBean>> getOnlineReplays() {
+  public CompletionStage<List<Replay>> getOnlineReplays() {
     return fafService.getOnlineReplays();
   }
 
   @Override
-  public void runReplay(ReplayInfoBean item) {
+  public void runReplay(Replay item) {
     if (item.getReplayFile() != null) {
       runReplayFile(item.getReplayFile());
     } else {

@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.InputStream;
@@ -24,11 +24,11 @@ public class ReplayDownloadTask extends CompletableTask<Path> {
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final String TEMP_FAF_REPLAY_FILE_NAME = "temp.fafreplay";
 
-  @Resource
+  @Inject
   I18n i18n;
-  @Resource
+  @Inject
   Environment environment;
-  @Resource
+  @Inject
   PreferencesService preferencesService;
 
   private int replayId;

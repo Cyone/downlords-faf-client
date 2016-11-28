@@ -1,11 +1,11 @@
 package com.faforever.client.chat;
 
+import com.faforever.client.chat.event.ChatMessageEvent;
 import com.faforever.client.i18n.I18n;
 import com.faforever.client.net.ConnectionState;
 import com.faforever.client.notification.NotificationService;
 import com.faforever.client.notification.TransientNotification;
 import com.faforever.client.player.Player;
-import com.faforever.client.player.PlayerService;
 import com.faforever.client.preferences.ChatPrefs;
 import com.faforever.client.preferences.Preferences;
 import com.faforever.client.preferences.PreferencesService;
@@ -16,6 +16,7 @@ import com.faforever.client.task.TaskService;
 import com.faforever.client.test.AbstractPlainJavaFxTest;
 import com.faforever.client.user.UserService;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.eventbus.EventBus;
 import com.google.common.hash.Hashing;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.MapProperty;
@@ -87,7 +88,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -160,9 +160,9 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
   @Mock
   private ChannelSnapshot otherChannelSnapshot;
   @Mock
-  private PlayerService playerService;
-  @Mock
   private Player player;
+  @Mock
+  private EventBus eventBus;
 
   @Captor
   private ArgumentCaptor<Consumer<SocialMessage>> socialMessageListenerCaptor;
@@ -178,13 +178,13 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
     instance.fafService = fafService;
     instance.userService = userService;
     instance.taskService = taskService;
-    instance.playerService = playerService;
     instance.notificationService = notificationService;
     instance.i18n = i18n;
     instance.pircBotXFactory = pircBotXFactory;
     instance.preferencesService = preferencesService;
     instance.threadPoolExecutor = threadPoolExecutor;
     instance.defaultChannelName = DEFAULT_CHANNEL_NAME;
+    instance.eventBus = eventBus;
 
     BooleanProperty loggedInProperty = new SimpleBooleanProperty();
 
@@ -323,7 +323,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
 
   private CountDownLatch listenForConnected() {
     CountDownLatch latch = new CountDownLatch(1);
-    instance.connectionStateProperty().addListener((observable, oldValue, newValue) -> {
+    instance.connectionState.addListener((observable, oldValue, newValue) -> {
       if (newValue == ConnectionState.CONNECTED) {
         latch.countDown();
       }
@@ -439,13 +439,10 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
   }
 
   @Test
-  public void testAddOnMessageListenerWithMessage() throws Exception {
-    CompletableFuture<String> channelNameFuture = new CompletableFuture<>();
+  public void testChatMessageEventTriggeredByChannelMessage() throws Exception {
     CompletableFuture<ChatMessage> chatMessageFuture = new CompletableFuture<>();
-    instance.addOnMessageListener(chatMessage -> {
-      channelNameFuture.complete(chatMessage.getSource());
-      chatMessageFuture.complete(chatMessage);
-    });
+    doAnswer(invocation -> chatMessageFuture.complete(invocation.getArgumentAt(0, ChatMessageEvent.class).getMessage()))
+        .when(eventBus).post(any());
 
     String message = "chat message";
 
@@ -454,21 +451,15 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
 
     connect();
 
-    CompletableFuture<ChatMessage> messageFuture = listenForMessage();
     firePircBotXEvent(createMessageEvent(defaultChannel, user1, message));
-    messageFuture.get(TIMEOUT, TIMEOUT_UNIT);
 
-    assertThat(channelNameFuture.get(), is(DEFAULT_CHANNEL_NAME));
-    assertThat(chatMessageFuture.get().getMessage(), is(message));
-    assertThat(chatMessageFuture.get().getUsername(), is(chatUser1.getUsername()));
-    assertThat(chatMessageFuture.get().getTime(), is(greaterThan(Instant.ofEpochMilli(System.currentTimeMillis() - 1000))));
-    assertThat(chatMessageFuture.get().isAction(), is(false));
-  }
+    ChatMessage chatMessage = chatMessageFuture.get(TIMEOUT, TIMEOUT_UNIT);
 
-  private CompletableFuture<ChatMessage> listenForMessage() {
-    CompletableFuture<ChatMessage> future = new CompletableFuture<>();
-    instance.addOnMessageListener(future::complete);
-    return future;
+    assertThat(chatMessage.getSource(), is(defaultChannel.getName()));
+    assertThat(chatMessage.getMessage(), is(message));
+    assertThat(chatMessage.getUsername(), is(chatUser1.getUsername()));
+    assertThat(chatMessage.getTime(), is(greaterThan(Instant.ofEpochMilli(System.currentTimeMillis() - 1000))));
+    assertThat(chatMessage.isAction(), is(false));
   }
 
   private MessageEvent createMessageEvent(org.pircbotx.Channel channel, User user, String message) {
@@ -476,19 +467,23 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
   }
 
   @Test
-  public void testAddOnMessageListenerWithAction() throws Exception {
+  public void testChatMessageEventTriggeredByAction() throws Exception {
+    CompletableFuture<ChatMessage> chatMessageFuture = new CompletableFuture<>();
+    doAnswer(invocation -> chatMessageFuture.complete(invocation.getArgumentAt(0, ChatMessageEvent.class).getMessage()))
+        .when(eventBus).post(any());
+
     String action = "chat action";
 
     connect();
-    CompletableFuture<ChatMessage> messageFuture = listenForMessage();
     firePircBotXEvent(createActionEvent(defaultChannel, user1, action));
-    messageFuture.get(TIMEOUT, TIMEOUT_UNIT);
 
-    assertThat(messageFuture.get().getSource(), is(defaultChannel.getName()));
-    assertThat(messageFuture.get().getMessage(), is(action));
-    assertThat(messageFuture.get().getUsername(), is(chatUser1.getUsername()));
-    assertThat(messageFuture.get().getTime(), is(greaterThan(Instant.ofEpochMilli(System.currentTimeMillis() - 10_000))));
-    assertThat(messageFuture.get().isAction(), is(true));
+    ChatMessage chatMessage = chatMessageFuture.get(TIMEOUT, TIMEOUT_UNIT);
+
+    assertThat(chatMessage.getSource(), is(defaultChannel.getName()));
+    assertThat(chatMessage.getMessage(), is(action));
+    assertThat(chatMessage.getUsername(), is(chatUser1.getUsername()));
+    assertThat(chatMessage.getTime(), is(greaterThan(Instant.ofEpochMilli(System.currentTimeMillis() - 10_000))));
+    assertThat(chatMessage.isAction(), is(true));
   }
 
   private ActionEvent createActionEvent(org.pircbotx.Channel channel, User user, String action) {
@@ -496,13 +491,10 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
   }
 
   @Test
-  public void testAddOnPrivateChatMessageListener() throws Exception {
-    CompletableFuture<String> usernameFuture = new CompletableFuture<>();
+  public void testChatMessageEventTriggeredByPrivateMessage() throws Exception {
     CompletableFuture<ChatMessage> chatMessageFuture = new CompletableFuture<>();
-    instance.addOnPrivateChatMessageListener(chatMessage -> {
-      usernameFuture.complete(chatMessage.getSource());
-      chatMessageFuture.complete(chatMessage);
-    });
+    doAnswer(invocation -> chatMessageFuture.complete(invocation.getArgumentAt(0, ChatMessageEvent.class).getMessage()))
+        .when(eventBus).post(any());
 
     String message = "private message";
 
@@ -515,10 +507,13 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
     connect();
     firePircBotXEvent(createPrivateMessageEvent(user, message));
 
-    assertThat(chatMessageFuture.get().getMessage(), is(message));
-    assertThat(chatMessageFuture.get().getUsername(), is(chatUser1.getUsername()));
-    assertThat(chatMessageFuture.get().getTime(), is(greaterThan(Instant.ofEpochMilli(System.currentTimeMillis() - 1000))));
-    assertThat(chatMessageFuture.get().isAction(), is(false));
+    ChatMessage chatMessage = chatMessageFuture.get(TIMEOUT, TIMEOUT_UNIT);
+
+    assertThat(chatMessage.getMessage(), is(message));
+    assertThat(chatMessage.getSource(), is(chatUser1.getUsername()));
+    assertThat(chatMessage.getUsername(), is(chatUser1.getUsername()));
+    assertThat(chatMessage.getTime(), is(greaterThan(Instant.ofEpochMilli(System.currentTimeMillis() - 1000))));
+    assertThat(chatMessage.isAction(), is(false));
   }
 
   private PrivateMessageEvent createPrivateMessageEvent(User sender, String message) {
@@ -529,7 +524,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
   public void testAddOnChatConnectedListener() throws Exception {
     CompletableFuture<Boolean> onChatConnectedFuture = new CompletableFuture<>();
 
-    instance.connectionStateProperty().addListener((observable, oldValue, newValue) -> {
+    instance.connectionState.addListener((observable, oldValue, newValue) -> {
       switch (newValue) {
         case CONNECTED:
           onChatConnectedFuture.complete(null);
@@ -548,7 +543,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
   @Test
   public void testAddOnChatDisconnectedListener() throws Exception {
     CompletableFuture<Void> onChatDisconnectedFuture = new CompletableFuture<>();
-    instance.connectionStateProperty().addListener((observable, oldValue, newValue) -> {
+    instance.connectionState.addListener((observable, oldValue, newValue) -> {
       switch (newValue) {
         case DISCONNECTED:
           onChatDisconnectedFuture.complete(null);
@@ -566,7 +561,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
 
   private CompletableFuture<Void> listenForDisconnected() {
     CompletableFuture<Void> future = new CompletableFuture<>();
-    instance.connectionStateProperty().addListener((observable, oldValue, newValue) -> {
+    instance.connectionState.addListener((observable, oldValue, newValue) -> {
       if (newValue == ConnectionState.DISCONNECTED) {
         future.complete(null);
       }
@@ -610,7 +605,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
   @SuppressWarnings("unchecked")
   public void testConnect() throws Exception {
     ArgumentCaptor<Configuration> captor = ArgumentCaptor.forClass(Configuration.class);
-    when(userService.getUid()).thenReturn(681);
+    when(userService.getUserId()).thenReturn(681);
 
     connect();
     botStartedFuture.get(TIMEOUT, TIMEOUT_UNIT);
@@ -775,7 +770,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
     connect();
     botStartedFuture.get(TIMEOUT, TIMEOUT_UNIT);
 
-    instance.connectionStateProperty().set(ConnectionState.CONNECTED);
+    instance.connectionState.set(ConnectionState.CONNECTED);
 
     String channelToJoin = "#anotherChannel";
     instance.joinChannel(channelToJoin);
@@ -801,7 +796,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
     when(nickServHostMask.getHostmask()).thenReturn("nickserv");
     firePircBotXEvent(new NoticeEvent(pircBotX, nickServHostMask, null, null, "", "User foo isn't registered"));
 
-    instance.connectionStateProperty().set(ConnectionState.CONNECTED);
+    instance.connectionState.set(ConnectionState.CONNECTED);
 
     String md5Password = Hashing.md5().hashString(password, StandardCharsets.UTF_8).toString();
     verify(outputIrc, timeout(100)).message("NickServ", String.format("register %s junit@users.faforever.com", md5Password));
@@ -814,7 +809,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
 
     assertThat(instance.getOrCreateChannel(DEFAULT_CHANNEL_NAME).getUsers(), hasSize(1));
 
-    instance.connectionStateProperty().set(ConnectionState.DISCONNECTED);
+    instance.connectionState.set(ConnectionState.DISCONNECTED);
 
     assertThat(instance.getOrCreateChannel(DEFAULT_CHANNEL_NAME).getUsers(), empty());
   }
@@ -844,7 +839,6 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
 
   @Test
   public void getOrCreateChatUserFoeNoNotification() throws Exception {
-    when(playerService.getPlayerForUsername(anyString())).thenReturn(player);
     when(player.getSocialStatus()).thenReturn(SocialStatus.FOE);
     when(player.getId()).thenReturn(1);
 
@@ -880,7 +874,7 @@ public class PircBotXChatServiceTest extends AbstractPlainJavaFxTest {
     connect();
     botStartedFuture.get(TIMEOUT, TIMEOUT_UNIT);
 
-    instance.connectionStateProperty().set(ConnectionState.CONNECTED);
+    instance.connectionState.set(ConnectionState.CONNECTED);
 
     CountDownLatch firstJoinLatch = new CountDownLatch(1);
     CountDownLatch secondJoinLatch = new CountDownLatch(1);

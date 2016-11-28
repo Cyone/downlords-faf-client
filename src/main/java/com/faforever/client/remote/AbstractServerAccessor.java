@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.PreDestroy;
-import javax.annotation.Resource;
+import javax.inject.Inject;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -22,7 +22,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 public abstract class AbstractServerAccessor {
 
   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  @Resource
+  @Inject
   ThreadPoolExecutor threadPoolExecutor;
   private boolean stopped;
   private QDataInputStream dataInput;
