@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.testfx.util.WaitForAsyncUtils;
 
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
@@ -22,6 +21,7 @@ import java.lang.invoke.MethodHandles;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.CountDownLatch;
 
 import static org.mockito.Mockito.when;
 
@@ -38,16 +38,21 @@ public class CheckForUpdateTaskTest extends AbstractPlainJavaFxTest {
   @Mock
   private I18n i18n;
 
+  private CountDownLatch terminateLatch;
+
   @Before
   public void setUp() throws Exception {
     instance = new CheckForUpdateTask();
     instance.i18n = i18n;
     instance.environment = environment;
+
+    terminateLatch = new CountDownLatch(1);
   }
 
   @After
   public void tearDown() throws Exception {
     IOUtils.closeQuietly(fakeGithubServerSocket);
+    terminateLatch.countDown();
   }
 
   @Test
@@ -75,7 +80,8 @@ public class CheckForUpdateTaskTest extends AbstractPlainJavaFxTest {
         String response = CharStreams.toString(sampleReader);
 
         outputStreamWriter.write(response);
-      } catch (IOException e) {
+        terminateLatch.await();
+      } catch (Exception e) {
         logger.error("Exception in fake HTTP server", e);
         throw new RuntimeException(e);
       }
