@@ -7,7 +7,6 @@ import org.apache.commons.compress.utils.IOUtils;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.slf4j.Logger;
@@ -51,11 +50,7 @@ public class CheckForUpdateTaskTest extends AbstractPlainJavaFxTest {
     IOUtils.closeQuietly(fakeGithubServerSocket);
   }
 
-  /**
-   * Never version is available on server.
-   */
   @Test
-  @Ignore("For some reason, this keeps failing on travis")
   public void testIsNewer() throws Exception {
     instance.setCurrentVersion(new ComparableVersion("0.4.8-alpha"));
 
@@ -91,7 +86,6 @@ public class CheckForUpdateTaskTest extends AbstractPlainJavaFxTest {
    * There is no newer version on the server.
    */
   @Test
-  @Ignore("For some reason, this keeps failing on travis")
   public void testGetUpdateIsCurrent() throws Exception {
     instance.setCurrentVersion(new ComparableVersion("0.4.8.1-alpha"));
 
